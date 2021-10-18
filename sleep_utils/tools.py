@@ -14,8 +14,7 @@ import mne
 import ospath
 from io import StringIO
 import warnings
-import clipboard # pip install clipboard
-from datetime import datetime , timedelta
+from datetime import datetime 
 
 
 def sleep(seconds):
