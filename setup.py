@@ -8,6 +8,6 @@ setup(name='sleep-utils',
       author_email='nomail',
       license='GNU 2.0',
       packages=['sleep_utils'],
-      install_requires=['mne', 'matplotlib', 'pandas', 'seaborn', 'scipy', 'lspopt', 'sklearn', 'numba'],
+      install_requires=['mne', 'matplotlib', 'pandas', 'seaborn', 'scipy', 'lspopt', 'scikit-learn', 'numba'],
       zip_safe=False)
 
