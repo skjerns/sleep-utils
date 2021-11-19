@@ -78,7 +78,8 @@ def v2rgb(v, cmap=None):
 
     
 def plot_confusion_matrix(confmat, target_names=None, ax=None, title='', 
-                          cmap='Blues', perc=True, cbar=True):
+                          cmap='Blues', perc=True, cbar=True, 
+                          xlabel='True sleep stage', ylabel='Predicted sleep stage'):
     """
     Plot a Confusion Matrix.
     
@@ -109,17 +110,18 @@ def plot_confusion_matrix(confmat, target_names=None, ax=None, title='',
     cm = 100* cm.astype('float') / div
 
     df = pd.DataFrame(data=np.sqrt(cm), columns=c_names, index=r_names)
-    g  = sns.heatmap(df, annot = cm if perc else confmat , fmt=".1f" if perc else ".0f",
+    g  = sns.heatmap(df, annot = cm if perc else confmat , fmt=".1f" if perc else ".2f",
                      linewidths=.5, vmin=0, vmax=np.sqrt(100), cmap=cmap, 
-                     cbar=cbar,annot_kws={"size": 13}, ax=ax)    
+                     cbar=cbar, ax=ax)    
     g.set_title(title)
     if cbar:
         cbar = g.collections[0].colorbar
         cbar.set_ticks(np.sqrt(np.arange(0,100,20)))
         cbar.set_ticklabels(np.arange(0,100,20))
-    g.set_ylabel('True sleep stage',fontdict={'fontsize' : 12, 'fontweight':'bold'})
-    g.set_xlabel('Predicted sleep stage',fontdict={'fontsize' : 12, 'fontweight':'bold'})
-#    plt.tight_layout()
+    g.set_ylabel(xlabel)
+    g.set_xlabel(ylabel)
+
+    plt.pause(0.1)
     plt.tight_layout()
         
         
@@ -160,6 +162,11 @@ def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
         elif np.max(stages)==4 and np.min(stages)==0:
             if 1 in stages:
                 labeldict = {0:'W', 4:'REM', 1:'S1', 2:'S2', 3:'SWS', }
+            else:
+                labeldict = {0:'W', 4:'REM', 2:'S2', 3:'SWS'}
+        elif np.max(stages)==9 and np.min(stages)==0:
+            if 1 in stages:
+                labeldict = {0:'W', 4:'REM', 1:'S1', 2:'S2', 3:'SWS', 9:'A'}
             else:
                 labeldict = {0:'W', 4:'REM', 2:'S2', 3:'SWS'}
         else:
@@ -232,7 +239,7 @@ def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
     if xlabel: plt.xlabel('Time after recording start')
     if ylabel: plt.ylabel('Sleep Stage')
     if title is not None:
-        plt.title(title)
+        ax.set_title(title)
 
     try:
         warnings.filterwarnings("ignore", message='This figure includes Axes that are not compatible')

@@ -14,6 +14,7 @@ import mne
 import ospath
 from io import StringIO
 import warnings
+import logging
 from datetime import datetime 
 
 
@@ -65,7 +66,7 @@ def analyze_function(fun):
 
     
 def read_hypno(hypno_file, epochlen = 30, epochlen_infile=None, mode='auto', 
-               exp_seconds=None, conf_dict=None):
+               exp_seconds=None, conf_dict=None, verbose=True):
     """
     reads a hypnogram file as created by VisBrain or as CSV type 
     (or also some custom cases like the Dreams database)
@@ -89,8 +90,8 @@ def read_hypno(hypno_file, epochlen = 30, epochlen_infile=None, mode='auto',
             
     #conversion dictionary
     if conf_dict is None:
-        conv_dict = {'W':0, 'WAKE':0, 'N1': 1, 'N2': 2, 'N3': 3, 'R':4, 'REM': 4, 'ART': 5,
-                     -1:8, **{i:i for i in range(9)}, **{f'{i}':i for i in range(9)}}
+        conv_dict = {'W':0, 'WAKE':0, 'N1': 1, 'N2': 2, 'N3': 3, 'R':4, 'REM': 4, 'ART': 9,
+                     -1:9, '-1':9, **{i:i for i in range(0, 10)}, **{f'{i}':i for i in range(0, 10)}}
     
     lines = content.split('\n')
     if mode=='auto':
@@ -131,15 +132,15 @@ def read_hypno(hypno_file, epochlen = 30, epochlen_infile=None, mode='auto',
     elif mode=='csv':
         if exp_seconds and not epochlen_infile:
             epochlen_infile=exp_seconds//len(lines)
-            print('[INFO] Assuming csv annotations with one entry per {} seconds'.format(epochlen_infile))
+            if verbose: print('[INFO]Assuming csv annotations with one entry per {} seconds'.format(epochlen_infile))
 
         elif epochlen_infile is None: 
             if len(lines) < 2400: # we assume no recording is longer than 20 hours
                 epochlen_infile = 30
-                print('[INFO] Assuming csv annotations are per epoch')
+                if verbose: print('[INFO] Assuming csv annotations are per epoch')
             else:
-                epochlen_infile = 1
-                print('[INFO] Assuming csv annotations are per second')
+                epochlen_infile = 1 
+                if verbose: print('[INFO] Assuming csv annotations are per second')
         lines = [line.split('\t')[0] if '\t' in line else line for line in lines]
         lines = [conv_dict[l]  if l in conv_dict else l for l in lines if len(l)>0]
         lines = [[line]*epochlen_infile for line in lines]
@@ -167,7 +168,7 @@ def read_hypno(hypno_file, epochlen = 30, epochlen_infile=None, mode='auto',
         
     stages = stages[::epochlen]
     if len(stages)==0:
-        print('[WARNING] hypnogram loading failed, len == 0')
+        logging.warning('hypnogram loading failed, len == 0')
         
     return np.array(stages)
    
@@ -267,11 +268,12 @@ def write_hypno(hypno, filename, mode='time', seconds_per_annotation = 30, comme
     :param comment: A comment that is added to the beginning if the file
     :param overwrite: Overwrite file if already present?
     """
-    if not filename.endswith('.hypno'):
-        warnings.warn('Filename ends in ".{}", recommended to end in .hypno'.format(
-                       os.path.splitext(filename)[1]))
+
     assert seconds_per_annotation>=1
     if mode=='time':
+        if not filename.endswith('.hypno'):
+            warnings.warn('Filename ends in ".{}", recommended to end in .hypno'.format(
+                           os.path.splitext(filename)[1]))
         write_hypno_time(hypno, filename, seconds_per_annotation=seconds_per_annotation, 
                          comment=comment, overwrite=overwrite)
     elif mode=='csv':
