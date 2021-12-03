@@ -368,9 +368,10 @@ def specgram_multitaper(data, sfreq, sperseg=30, perc_overlap=1/3,
             tick_distance = np.argmax(xy>sperseg*60)*2 #plot per half hour
         two_hz_pos = np.argmax(freq>1.99999999)
         ytick_pos = np.arange(0, len(freq), two_hz_pos)
+        ytick_label = np.linspace(ufreq, lfreq , len(ytick_pos)).round().astype(int)
         ax.set_xticks(np.arange(0, mesh.shape[1], tick_distance))
         ax.set_yticks(ytick_pos)
-        ax.set_yticklabels(np.arange(ufreq, lfreq-1, -2))
+        ax.set_yticklabels(ytick_label)
         ax.set_xlabel('Time after onset')
         ax.set_ylabel('Frequency')
         warnings.filterwarnings("ignore", message='This figure includes Axes that are not compatible')

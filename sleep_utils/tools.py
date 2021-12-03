@@ -139,16 +139,16 @@ def hypno_summary(hypno, epochlen=30, verbose=True):
     lat_S3 = (np.argmax(hypno==3)-onset)*epochlen/60
     lat_REM = (np.argmax(hypno==4)-onset)*epochlen/60
 
-    onset = onset*epochlen/60 # now convert to minutes
-    offset = offset*epochlen/60 # now convert to minutes
+    sleep_onset_after_rec_start = onset*epochlen/60 # now convert to minutes
+    sleep_offset_after_rec_start = offset*epochlen/60 # now convert to minutes
+    recording_length = len(hypno)*epochlen/60
     
     summary = locals().copy()
-    del summary['verbose']
-    del summary['epochlen']
-    del summary['stage']
-    del summary['sleep_stages']
-    del summary['hypno']
-    del summary['num']
+    ignore = ['verbose', 'epochlen', 'stage', 'sleep_stages', 'num', 'hypno',
+              'offset', 'onset']
+    for var in ignore:
+        del summary[var]
+
     if verbose: pprint(summary)
 
     return summary
