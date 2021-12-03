@@ -15,8 +15,8 @@ import ospath
 from io import StringIO
 import warnings
 import logging
-from datetime import datetime 
-
+from pprint import pprint
+from datetime import datetime, timezone, timedelta
 
 def sleep(seconds):
     if seconds > 1:
@@ -63,6 +63,96 @@ def analyze_function(fun):
         print('Preserves shift')
     else:
         print('Changes shift')
+
+def hypno_summary(hypno, epochlen=30, verbose=True):
+    """
+    param hypno: a hypnogram with stages in format
+                 W:0, S1:1, S2:2, S3:3, REM:4
+    param epochlen: the lenght of each entry in the hypnogram, e.g. 30 seconds
+    
+    summarizes the sleep parameters according to the AASM recommendations
+
+    
+        TST:     total sleep time - sum of minutes of sleep stages other than W
+        TRT:     total recording time - duration from sleep onset to offset
+        WASO:    total time spent in Wake between sleep onset/offset in minutes
+        min S1:  total time spent in S1 in minutes
+        min S2:  total time spent in S2 in minutes
+        min S3:  total time spent in S3 in minutes
+        min REM: total time spent in REM in minutes
+        % WASO:  percentage Wake after sleep onset relative to TRT
+        % S1:    relative time spent in S1 to TST
+        % S2:    relative time spent in S2 to TST
+        % S3:    relative time spent in S3 to TST
+        % REM:   relative time spent in REM to TST
+        lat S1:  latency of first S1 epoch after sleep onset in minutes
+        lat S2:  latency of first S2 epoch after sleep onset in minutes
+        lat S3:  latency of first S3 epoch after sleep onset in minutes
+        lat REM: latency of first REM epoch after sleep onset in minutes
+
+    For details and definitions see Iber et al (2007) The AASM Manual for the 
+    Scoring of Sleep and Associated Events. 
+    
+    NB:
+    sleep onset is defined by the AASM as the first non Wake epoch.
+    Currently all parameters using lights out/lights on (eg. sleep efficiency)
+    are not supported yet. Therefore, TRT will rely on sleep onset and sleep
+    offset as markers for its calculation.
+
+        
+    """
+    hypno = np.array(hypno)
+    
+    sleep_stages = {'W':0, 'S1':1, 'S2':2, 'SWS':3, 'REM':4}
+    # do some sanity checks
+    for stage, num in sleep_stages.items():
+        if not num in hypno:
+            warnings.warn(f'Stage {stage} not found in hypnogram')
+    for stage in np.unique(hypno):
+        if not stage in sleep_stages.values():
+            warnings.warn(f'Found annotation with unknown value {stage}. '\
+                          f'can only understand stages {sleep_stages}. '
+                          'calculations will likely be wrong. Please '
+                          'either transform to another stage (e.g. W) or' 
+                          ' remove from hypnogram.')
+                
+    onset = np.where(hypno!=0)[0][0] # first non-W epoch
+    offset = np.where(hypno!=0)[0][-1] # last non-W epoch
+    
+    TST = (sum(hypno!=0)*epochlen)/60
+    TRT = (offset-onset)*epochlen/60
+    
+    WASO = TRT-TST
+    min_S1 = sum(hypno==1)*epochlen/60
+    min_S2 = sum(hypno==2)*epochlen/60
+    min_S3 = sum(hypno==3)*epochlen/60
+    min_REM = sum(hypno==4)*epochlen/60
+    
+    perc_W = WASO/TRT
+    perc_S1 = min_S1/TST
+    perc_S2 = min_S2/TST
+    perc_S3 = min_S3/TST
+    perc_REM = min_REM/TST
+
+    lat_S1 = (np.argmax(hypno==1)-onset)*epochlen/60
+    lat_S2 = (np.argmax(hypno==2)-onset)*epochlen/60
+    lat_S3 = (np.argmax(hypno==3)-onset)*epochlen/60
+    lat_REM = (np.argmax(hypno==4)-onset)*epochlen/60
+
+    onset = onset*epochlen/60 # now convert to minutes
+    offset = offset*epochlen/60 # now convert to minutes
+    
+    summary = locals().copy()
+    del summary['verbose']
+    del summary['epochlen']
+    del summary['stage']
+    del summary['sleep_stages']
+    del summary['hypno']
+    del summary['num']
+    if verbose: pprint(summary)
+
+    return summary
+
 
     
 def read_hypno(hypno_file, epochlen = 30, epochlen_infile=None, mode='auto', 
@@ -321,10 +411,22 @@ def _time_format(seconds):
 
     
 
-def write_mne_edf(mne_raw, fname, picks=None, tmin=0, tmax=None, overwrite=False):
+def _stamp_to_dt(utc_stamp):
+    """Convert timestamp to datetime object in Windows-friendly way."""
+    if 'datetime' in str(type(utc_stamp)): return utc_stamp
+    # The min on windows is 86400
+    stamp = [int(s) for s in utc_stamp]
+    if len(stamp) == 1:  # In case there is no microseconds information
+        stamp.append(0)
+    return (datetime.fromtimestamp(0, tz=timezone.utc) +
+            timedelta(0, stamp[0], stamp[1]))  # day, sec, μs
+
+
+def write_mne_edf(mne_raw, fname, picks=None, tmin=0, tmax=None, 
+                  overwrite=False, verbose=False):
     """
     Saves the raw content of an MNE.io.Raw and its subclasses to
-    a file using the EDF+ filetype
+    a file using the EDF+/BDF filetype
     pyEDFlib is used to save the raw contents of the RawArray to disk
     Parameters
     ----------
@@ -346,18 +448,34 @@ def write_mne_edf(mne_raw, fname, picks=None, tmin=0, tmax=None, overwrite=False
         If True, the destination file (if it exists) will be overwritten.
         If False (default), an error will be raised if the file exists.
     """
+    import pyedflib # pip install pyedflib
+    from pyedflib import FILETYPE_BDF, FILETYPE_BDFPLUS, FILETYPE_EDF, FILETYPE_EDFPLUS
     if not issubclass(type(mne_raw), mne.io.BaseRaw):
         raise TypeError('Must be mne.io.Raw type')
     if not overwrite and os.path.exists(fname):
         raise OSError('File already exists. No overwrite.')
+        
     # static settings
+    has_annotations = True if len(mne_raw.annotations)>0 else False
+    if os.path.splitext(fname)[-1] == '.edf':
+        file_type = FILETYPE_EDFPLUS if has_annotations else FILETYPE_EDF
+        dmin, dmax = -32768, 32767 
+    else:
+        file_type = FILETYPE_BDFPLUS if has_annotations else FILETYPE_BDF
+        dmin, dmax = -8388608, 8388607
+    
+    print('saving to {}, filetype {}'.format(fname, file_type))
     sfreq = mne_raw.info['sfreq']
-    date = datetime.now().strftime( '%d %b %Y %H:%M:%S')
+    date = _stamp_to_dt(mne_raw.info['meas_date'])
+    
+    if tmin:
+        date += timedelta(seconds=tmin)
+    # no conversion necessary, as pyedflib can handle datetime.
+    #date = date.strftime('%d %b %Y %H:%M:%S')
     first_sample = int(sfreq*tmin)
     last_sample  = int(sfreq*tmax) if tmax is not None else None
 
-    if 'STI 014' in mne_raw.ch_names:
-        mne_raw.drop_channels(['STI 014'])
+    
     # convert data
     channels = mne_raw.get_data(picks, 
                                 start = first_sample,
@@ -365,24 +483,59 @@ def write_mne_edf(mne_raw, fname, picks=None, tmin=0, tmax=None, overwrite=False
     
     # convert to microvolts to scale up precision
     channels *= 1e6
-    
+
     # set conversion parameters
-    dmin, dmax = [-32768,  32767]
-    pmin, pmax = [channels.min(), channels.max()]
+    n_channels = len(channels)
+    
     # create channel from this   
-
-    header = make_header('mne-gist-save-edf-skjerns', startdate=date)
-    signal_headers = []
-    for i in range(len(channels)):
-        signal_header = make_signal_header(label=mne_raw.ch_names[i],
-                                           sample_rate=sfreq,
-                                           physical_min=pmin,
-                                           physical_max=pmax,
-                                           digital_min=dmin,
-                                           digital_max=dmax)
-        signal_headers.append(signal_header)
-
-    write_pyedf(fname, channels, signal_headers, header)
+    try:
+        f = pyedflib.EdfWriter(fname,
+                               n_channels=n_channels, 
+                               file_type=file_type)
+        
+        channel_info = []
+        
+        ch_idx = range(n_channels) if picks is None else picks
+        keys = list(mne_raw._orig_units.keys())
+        for i in ch_idx:
+            try:
+                ch_dict = {'label': mne_raw.ch_names[i], 
+                           'dimension': mne_raw._orig_units[keys[i]], 
+                           'sample_rate': mne_raw._raw_extras[0]['n_samps'][i], 
+                           'physical_min': mne_raw._raw_extras[0]['physical_min'][i], 
+                           'physical_max': mne_raw._raw_extras[0]['physical_max'][i], 
+                           'digital_min':  mne_raw._raw_extras[0]['digital_min'][i], 
+                           'digital_max':  mne_raw._raw_extras[0]['digital_max'][i], 
+                           'transducer': '', 
+                           'prefilter': ''}
+            except:
+                ch_dict = {'label': mne_raw.ch_names[i], 
+                           'dimension': mne_raw._orig_units[keys[i]], 
+                           'sample_rate': sfreq, 
+                           'physical_min': channels.min(), 
+                           'physical_max': channels.max(), 
+                           'digital_min':  dmin, 
+                           'digital_max':  dmax, 
+                           'transducer': '', 
+                           'prefilter': ''}
+        
+            channel_info.append(ch_dict)
+        f.setPatientCode(mne_raw._raw_extras[0]['subject_info'].get('id', '0'))
+        f.setPatientName(mne_raw._raw_extras[0]['subject_info'].get('name', 'noname'))
+        f.setTechnician('mne-gist-save-edf-skjerns')
+        f.setSignalHeaders(channel_info)
+        f.setStartdatetime(date)
+        f.writeSamples(channels)
+        for annotation in mne_raw.annotations:
+            onset = annotation['onset']
+            duration = annotation['duration']
+            description = annotation['description']
+            f.writeAnnotation(onset, duration, description)
+        
+    except Exception as e:
+        raise e
+    finally:
+        f.close()    
     return True
 
 

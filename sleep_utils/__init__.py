@@ -12,4 +12,4 @@ from . import tools
 from . import sigproc
 
 from .plotting import specgram_multitaper, plot_hypnogram, plot_confusion_matrix
-from .tools import write_hypno, read_hypno, write_mne_edf
+from .tools import write_hypno, read_hypno, write_mne_edf, hypno_summary
