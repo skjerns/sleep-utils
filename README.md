@@ -4,7 +4,7 @@ A python toolbox for sleep researchers. Plot hypnograms, spectrograms, confusion
 
 ![sample_hypnogram.png](./assets/d1f7592a94f0f39c4d672c5913e161ec16193458.png)
 
-![spectrogram_multitaper.png](.\assets\c49446ae6d84dee6e13ae14034dd12eb6bbdb48d.png)
+![spectrogram_multitaper.png](./assets/c49446ae6d84dee6e13ae14034dd12eb6bbdb48d.png)
 
 #### Install
 
