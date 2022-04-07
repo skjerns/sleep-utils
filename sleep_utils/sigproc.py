@@ -6,10 +6,8 @@ Created on Wed Oct 24 09:47:39 2018
 import mne
 import warnings
 import scipy
-import numba
 import numpy as np
 from PIL import Image
-from sklearn import feature_extraction
 from scipy import signal
 from scipy.signal import correlate
 from scipy.signal import butter, lfilter, convolve2d, welch
@@ -73,7 +71,6 @@ def rfft(signals, *args, **kwargs):
 
 
 
-@numba.vectorize([numba.float64(numba.complex128)])
 def abs2(x):
     """highly optimized version for magnitude taking.
        if there are problems, just remove the decorator line @numba.vectorize(...)
@@ -100,6 +97,8 @@ def welchs(signals, nperseg=None, overlap=0.0, taper_name='boxcar'):
     :param taper_name: Which taper to use, if overlap>0, it is recommended to use a taper
     :returns: The Welch's frequency estimate of the signal as magnitudes
     """
+    from sklearn import feature_extraction
+
     signals = np.atleast_2d(signals)
     siglen = signals.shape[-1]
     
