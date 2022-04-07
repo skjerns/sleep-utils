@@ -6,6 +6,30 @@ A python toolbox for sleep researchers. Plot hypnograms, spectrograms, confusion
 
 <img src="./assets/c49446ae6d84dee6e13ae14034dd12eb6bbdb48d.png" title="" alt="spectrogram_multitaper.png" width="395">
 
+```
+Hypnogram summary
+{'TRT': 460.5,
+ 'TST': 444.5,
+ 'WASO': 16.0,
+ 'lat_REM': 65.0,
+ 'lat_S1': 0.0,
+ 'lat_S2': 2.0,
+ 'lat_S3': 9.0,
+ 'min_REM': 109.5,
+ 'min_S1': 13.5,
+ 'min_S2': 214.0,
+ 'min_S3': 107.5,
+ 'perc_REM': 0.24634420697412823,
+ 'perc_S1': 0.030371203599550055,
+ 'perc_S2': 0.4814398200224972,
+ 'perc_S3': 0.24184476940382452,
+ 'perc_W': 0.03474484256243214,
+ 'recording_length': 547.0,
+ 'sleep_offset_after_rec_start': 534.0,
+ 'sleep_onset_after_rec_start': 73.5}
+```
+
+
 #### Install
 
 ```
