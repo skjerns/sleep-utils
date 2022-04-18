@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='sleep-utils',
-      version='1.1',
+      version='1.11',
       description='A collection of tools for sleep research',
       url='http://github.com/skjerns/sleep-utils',
       author='skjerns',
