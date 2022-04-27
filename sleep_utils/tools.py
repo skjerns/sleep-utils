@@ -222,7 +222,7 @@ def read_hypno(hypno_file, epochlen = 30, epochlen_infile=None, mode='auto',
     elif mode=='csv':
         if exp_seconds and not epochlen_infile:
             epochlen_infile=exp_seconds//len(lines)
-            if verbose: print('[INFO]Assuming csv annotations with one entry per {} seconds'.format(epochlen_infile))
+            if verbose: print('[INFO] Assuming csv annotations with one entry per {} seconds'.format(epochlen_infile))
 
         elif epochlen_infile is None: 
             if len(lines) < 2400: # we assume no recording is longer than 20 hours
