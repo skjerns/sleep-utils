@@ -573,7 +573,7 @@ def get_correlation(signal1, signal2, sfreq, llim=2, ulim=20):
     return corr
 
 
-def resample(raw, o_sfreq, t_sfreq):
+def resample(data, o_sfreq, t_sfreq):
     """
     resample a signal using MNE resample functions
     This automatically is optimized for EEG applying filters etc
@@ -583,12 +583,13 @@ def resample(raw, o_sfreq, t_sfreq):
     :param t_sfreq: the target sampling frequency
     :returns: the resampled signal
     """
-    if o_sfreq==t_sfreq: return raw
-    raw = np.atleast_2d(raw)
+    if o_sfreq==t_sfreq: return data
+    raw = np.atleast_2d(data)
+    n_jobs = min(len(raw), 8)
     ch_names=['ch{}'.format(i) for i in range(len(raw))]
     info = mne.create_info(ch_names=ch_names, sfreq=o_sfreq, ch_types=['eeg'])
-    raw_mne = mne.io.RawArray(raw, info, verbose='ERROR')
-    resampled = raw_mne.resample(t_sfreq, n_jobs=3)
+    raw_mne = mne.io.RawArray(raw, info, verbose='WARNING')
+    resampled = raw_mne.resample(t_sfreq, n_jobs=n_jobs, verbose='WARNING')
     new_raw = resampled.get_data().squeeze()
     return new_raw.astype(raw.dtype, copy=False)
 
