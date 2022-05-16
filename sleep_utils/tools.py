@@ -11,7 +11,6 @@ import os
 import numpy as np
 import time
 import mne
-import ospath
 from io import StringIO
 import warnings
 import logging
@@ -293,7 +292,7 @@ def write_hypno_time(hypno, filename, seconds_per_annotation=30, comment=None, o
     :param seconds_per_epoch: How many seconds each annotation contains
     :param overwrite: overwrite file?
     """
-    assert not ospath.exists(filename) or overwrite, 'File already exists, no overwrite'
+    assert not os.path.exists(filename) or overwrite, 'File already exists, no overwrite'
     hypno = np.repeat(hypno, seconds_per_annotation)
     hypno_str = hypno2time(hypno)
     if comment is not None:
@@ -319,7 +318,7 @@ def write_hypno_csv(hypno, filename, seconds_per_annotation = 30, mode = 'second
                  'epochs': write one annotation per 30 seconds
     :param overwrite: overwrite file?
     """
-    assert not ospath.exists(filename) or overwrite, 'File already exists, no overwrite'
+    assert not os.path.exists(filename) or overwrite, 'File already exists, no overwrite'
     assert mode in ['seconds', 'epochs'],'Mode must be seconds or epochs, is {}'.format(mode) 
     hypno = np.array(hypno, copy=False)
     try:
@@ -398,7 +397,7 @@ def convert_hypnogram(hypno_file_in, hypno_file_out, **kwargs):
     :param hypno_file_in:  A string pointing to a hypnogrma file
     :param hypno_file_out: Where the converted hypnogram should be saved
     """
-    assert not ospath.exists(hypno_file_out)
+    assert not os.path.exists(hypno_file_out)
     hypno = read_hypno(hypno_file_in, **kwargs)
     return write_hypno(hypno, hypno_file_out)
     
