@@ -6,6 +6,8 @@ A python toolbox for sleep researchers. Plot hypnograms, spectrograms, confusion
 
 <img src="./assets/c49446ae6d84dee6e13ae14034dd12eb6bbdb48d.png" title="" alt="spectrogram_multitaper.png" width="395">
 
+<img src="md_assets/2022-07-25-13-06-18-image.png" title="" alt="" width="409">
+
 ```
 Hypnogram summary
 {'TRT': 460.5,
@@ -28,7 +30,6 @@ Hypnogram summary
  'sleep_offset_after_rec_start': 534.0,
  'sleep_onset_after_rec_start': 73.5}
 ```
-
 
 #### Install
 

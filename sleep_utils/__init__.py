@@ -11,6 +11,7 @@ from . import plotting
 from . import tools
 from . import sigproc
 
+from .plotting import plot_hypnogram_overview
 from .plotting import specgram_multitaper, plot_hypnogram
 from .plotting import specgram_welch, plot_confusion_matrix
 from .tools import write_hypno, read_hypno, write_mne_edf, hypno_summary

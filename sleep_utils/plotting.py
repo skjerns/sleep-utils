@@ -20,7 +20,9 @@ from lspopt import spectrogram_lspopt
 import warnings
 import seaborn as sns
 import pandas as pd
-
+from matplotlib.colors import ListedColormap
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.dates import DateFormatter
 
 def plotmulti(*args):
     """
@@ -253,6 +255,64 @@ def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
                    linewidth=4, zorder=99)
   
         
+
+def plot_hypnogram_overview(hypnos_list, ax=None):
+    """plot percentage of participants in certain sleep stage
+    
+    :param hypnos_list: list of hypnograms
+    :type hypnos_list: list
+    :param ax: ax to plot into
+    :type ax: plt.Axes
+    :return: the resulting image
+    :rtype: np.ndarray
+
+    """
+    size = (len(hypnos_list), max([len(x) for x in hypnos_list]))
+    hypnos = np.full(size, np.nan)
+
+    for i, hypno in enumerate(hypnos_list):
+        hypnos[i, :len(hypno)] = hypno
+
+    hypno_map = np.full([100, hypnos.shape[-1]], np.nanmax(hypnos)+1, dtype=int)
+    pos_map = {0:3, 1:2, 2:1, 3:4, 4:0, 5: np.nan}
+
+    for t, stages in enumerate(hypnos.T):
+        s, counts = np.unique(stages, return_counts=True)
+        perc = dict(zip(s, [int(c/sum(counts)*100) for c in counts]))
+        
+        psum = 0
+        for pos, stage in pos_map.items():
+            p = perc.get(stage)
+            if p is not None:
+                hypno_map[psum:psum+p, t] = -1 if np.isnan(stage) else stage
+                psum+=p
+
+    if ax is None:
+        ax = plt.gca()
+
+    cmap = ListedColormap(['blue', 'lightblue', 'lightgreen', 'darkgreen', 'red', 'gray'])
+    assert len(cmap.colors)==len(np.unique(hypno_map)), 'must have same number of colors and stages'
+    heatmap = ax.imshow(np.flipud(hypno_map),  aspect='auto', 
+               interpolation='nearest', cmap=cmap, vmin=0, vmax=len(cmap.colors))
+
+    ax.set_title('Distribution of sleep stages after recording start for all participants')
+    ax.set_xlabel('Time after recording start')
+    ax.set_ylabel('% of participants in stage')
+
+    positions = [m for m in range(0, hypno_map.shape[-1], 120)]
+    ticklabel = [f'{m//2//60}:00' for m in positions]
+    plt.xticks(positions, ticklabel)
+
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('bottom', size='10%', pad=0.6)
+    ax.figure.colorbar(heatmap, cax=cax, orientation='horizontal')
+
+    for i, text in enumerate(['Wake', 'N1', 'N2', 'SWS', 'REM', 'NaN']):
+        c = 'white' if i in [0, 3] else None
+        cax.text(i+0.5, 0.5, text, ha="center", va="center", color=c)
+    return heatmap
+
 
 
 def specgram_matplotlib(data, sfreq, NFFT=1500, ax=None):
