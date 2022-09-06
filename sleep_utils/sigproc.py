@@ -8,9 +8,8 @@ import warnings
 import scipy
 import numpy as np
 from PIL import Image
-from scipy import signal
-from scipy.signal import correlate
-from scipy.signal import butter, lfilter, convolve2d, welch
+from scipy.signal import correlate, get_window, iirnotch
+from scipy.signal import butter, lfilter, convolve2d, welch, hilbert
 from scipy.stats import zscore
 
 
@@ -107,7 +106,7 @@ def welchs(signals, nperseg=None, overlap=0.0, taper_name='boxcar'):
     if siglen%nperseg!=0: warnings.warn('window length should be a multiple of npseg')
 
     # get window only once, else it will be created for each segment, swallowing computation
-    taper = signal.get_window(taper_name, nperseg, False).astype(int) if taper_name not in ['boxcar', None] else None
+    taper = get_window(taper_name, nperseg, False).astype(int) if taper_name not in ['boxcar', None] else None
     
     # this step we have to take to get to the next segment
     step = int(nperseg - overlap)
@@ -301,7 +300,7 @@ def taper(signals, window_name):
     # how long is the signal?
     wlen = signals.shape[0] if signals.ndim==1 else signals.shape[1]
     # get the window function using scipy
-    window = signal.get_window(window_name, wlen, False)
+    window = get_window(window_name, wlen, False)
     # filter our input signal
     tapered = signals*window  
     return tapered
@@ -420,6 +419,35 @@ def correlate_specto(signal1, signal2, sfreq):
     corr = np.array([correlate(zscore(row1), zscore(row2)) for row1, row2 in zip(spec1,spec2)]).mean(0)
     return corr
 
+
+def coeff_var_env(signal, sfreq, band=(0.5, 4), mid_sec=30):
+    """Coefficient of the variance of the envelope (CVE) calculation
+    
+    as defined in  https://doi.org/10.1016/j.neuroimage.2018.01.063
+    
+    :param epoch: one epoch of data, 1D data as array
+    :type epoch: np.ndarray
+    :return: CVE of this epoch
+    :rtype: TYPE
+    """
+    sig = np.atleast_2d(signal)
+    sig_filtered = np.atleast_2d(bandfilter(sig, sfreq, *band, method='iir',
+                                            iir_params={'order':4, 
+                                                        'ftype':'butter'}))
+    ht_sig_filtered = np.abs(hilbert(sig_filtered))
+    
+    eeg_envelope = np.sqrt(sig_filtered**2 + ht_sig_filtered**2)
+    
+    t_excess = int(signal.shape[-1] -  mid_sec*sfreq)//2
+    middle_env = eeg_envelope[:, t_excess:-t_excess]
+    assert abs(middle_env.shape[1]-mid_sec*sfreq)<2
+    
+    mean = np.mean(middle_env)
+    sd = np.std(middle_env)
+    
+    cve = sd/(mean*0.523)  # [..] with 0.523 being the value for Gaussian waves
+     
+    return cve
 
 def get_shift_specto(signal1, signal2, sfreq = 256, w_seconds=1, limit_to=1):
     """
@@ -595,7 +623,7 @@ def resample(data, o_sfreq, t_sfreq):
 
 def resize(array, target_size):
     """
-    Resize a 1D array containing a signal
+    Resize a 1D array containing a signal/
     or a 2D array of several signasl as rows of any type (int/float) 
     by taking nearest neighbours to fill gaps within the rows
     
@@ -612,26 +640,32 @@ def resize(array, target_size):
     
     
 
-def bandfilter(raw ,sfreq, l_freq, h_freq):
-    """
-    Use mne.io.RawArray.filter to create a bandpath filter for this signal
+def bandfilter(data, sfreq, l_freq, h_freq, **kwargs):
+    """Use mne.io.RawArray.filter to create a bandpath filter for this signal
+    
+    Can be either 1D or 2D signal
+    
     :param raw: the signal
     :param sfreq: the sampling frequency of the signal
     :param l_freq: the lower frequency
     :param h_freq: the higher frequency
     """
-    info = mne.create_info(ch_names=['tmp'], sfreq=sfreq, ch_types=['eeg'])
-    raw_mnew = mne.io.RawArray(raw.reshape([1,-1]), info, verbose='ERROR')
-    resampled = raw_mnew.filter(l_freq, h_freq)
-    new_raw = resampled.get_data()[0,:]
-    return new_raw.astype(raw.dtype, copy=False)
+    assert data.ndim<3, 'Data must be 2D or 1D'
+    ndim = data.ndim
+    data = np.atleast_2d(data)
+    ch_names = [f'ch{i}' for i,_ in enumerate(data)]
+    info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=['eeg'])
+    raw = mne.io.RawArray(data, info, verbose='WARNING', copy='both')
+    raw = raw.filter(l_freq, h_freq, verbose='WARNING', **kwargs)
+    new_data = raw.get_data()
+    return new_data.squeeze() if ndim==1 else new_data
 
 def notch(data, sfreq=256, f0=50):
     fs = sfreq  # Sample frequency (Hz)
     Q = 30.0  # Quality factor
     w0 = f0/(fs/2)
-    b, a = signal.iirnotch(w0, Q)
-    filtered = signal.lfilter(b,a, data)
+    b, a = iirnotch(w0, Q)
+    filtered = lfilter(b,a, data)
     return filtered.astype(data, copy=False)
 
 ########### unchecked functions!! be aware

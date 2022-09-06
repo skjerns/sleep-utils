@@ -481,7 +481,8 @@ def write_mne_edf(mne_raw, fname, picks=None, tmin=0, tmax=None,
                                 stop  = last_sample)
     
     # convert to microvolts to scale up precision
-    channels *= 1e6
+    eeg_chs = [ch_type=='eeg' for ch_type in mne_raw.get_channel_types()]
+    channels[eeg_chs,:] *= 1e6
 
     # set conversion parameters
     n_channels = len(channels)
@@ -511,20 +512,23 @@ def write_mne_edf(mne_raw, fname, picks=None, tmin=0, tmax=None,
                 ch_dict = {'label': mne_raw.ch_names[i], 
                            'dimension': mne_raw._orig_units[keys[i]], 
                            'sample_rate': sfreq, 
-                           'physical_min': channels.min(), 
-                           'physical_max': channels.max(), 
+                           'physical_min': channels[i].min(), 
+                           'physical_max': channels[i].max(), 
                            'digital_min':  dmin, 
                            'digital_max':  dmax, 
                            'transducer': '', 
                            'prefilter': ''}
         
             channel_info.append(ch_dict)
-        f.setPatientCode(mne_raw._raw_extras[0]['subject_info'].get('id', '0'))
-        f.setPatientName(mne_raw._raw_extras[0]['subject_info'].get('name', 'noname'))
+            
+        subject_info = mne_raw._raw_extras[0].get('subject_info',{})
+        f.setPatientCode(subject_info.get('id', '0'))
+        f.setPatientName(subject_info.get('name', 'noname'))
         f.setTechnician('mne-gist-save-edf-skjerns')
         f.setSignalHeaders(channel_info)
         f.setStartdatetime(date)
         f.writeSamples(channels)
+        
         for annotation in mne_raw.annotations:
             onset = annotation['onset']
             duration = annotation['duration']

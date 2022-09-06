@@ -256,7 +256,7 @@ def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
   
         
 
-def plot_hypnogram_overview(hypnos_list, ax=None):
+def plot_hypnogram_overview(hypnos_list, ax=None, cbar=True):
     """plot percentage of participants in certain sleep stage
     
     :param hypnos_list: list of hypnograms
@@ -303,14 +303,14 @@ def plot_hypnogram_overview(hypnos_list, ax=None):
     ticklabel = [f'{m//2//60}:00' for m in positions]
     plt.xticks(positions, ticklabel)
 
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes('bottom', size='10%', pad=0.6)
-    ax.figure.colorbar(heatmap, cax=cax, orientation='horizontal')
-
-    for i, text in enumerate(['Wake', 'N1', 'N2', 'SWS', 'REM', 'NaN']):
-        c = 'white' if i in [0, 3] else None
-        cax.text(i+0.5, 0.5, text, ha="center", va="center", color=c)
+    if cbar:
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes('bottom', size='10%', pad=0.6)
+        ax.figure.colorbar(heatmap, cax=cax, orientation='horizontal')
+    
+        for i, text in enumerate(['Wake', 'N1', 'N2', 'SWS', 'REM', 'NaN']):
+            c = 'white' if i in [0, 3] else None
+            cax.text(i+0.5, 0.5, text, ha="center", va="center", color=c)
     return heatmap
 
 
