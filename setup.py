@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='sleep-utils',
-      version='1.14',
+      version='1.15',
       description='A collection of tools for sleep research',
       long_description=long_description,
       long_description_content_type="text/markdown",
