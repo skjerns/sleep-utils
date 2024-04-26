@@ -8,27 +8,25 @@ This file contains all functions that deal with IO
 
 """
 import os
-import numpy as np
 import time
-import mne
-from io import StringIO
 import warnings
 import logging
+import itertools
+import tempfile
+import mne
+import numpy as np
+from io import StringIO
 from pprint import pprint
 from datetime import datetime, timezone, timedelta
 
+
+    
 def sleep(seconds):
     if seconds > 1:
         for s in range(seconds):
             time.sleep(1)
     else:
         time.sleep(seconds)
-
-class AttrDict(dict):
-    def __init__(self, *args, **kwargs):
-        super(AttrDict, self).__init__(*args, **kwargs)
-        self.__dict__ = self
-
 
 def log(msg, *args, **kwargs):
     """
@@ -418,15 +416,9 @@ def convert_hypnogram(hypno_file_in, hypno_file_out, **kwargs):
     return write_hypno(hypno, hypno_file_out)
 
 
-
-
-
-
 def _time_format(seconds):
     """ returns a string with a fitting string"""
     return '{:02d}:{:02d} hours'.format(seconds//3600, seconds%3600//60)
-
-
 
 
 def _stamp_to_dt(utc_stamp):

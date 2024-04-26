@@ -11,8 +11,10 @@ Eg. plotting
     - spectograms
     - etc etc etc
 """
+import os
 import matplotlib
 import time
+import mne
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import welch
@@ -24,7 +26,50 @@ import pandas as pd
 from matplotlib.colors import ListedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import zscore
+import tkinter as tk
+from tkinter import Tk, Listbox, Label
+from tkinter.filedialog import askopenfilename, asksaveasfilename
+from sleep_utils import usleep_utils
 
+
+
+def choose_file(default_dir=None, default_file=None, exts='txt', 
+                title='Choose file', mode='open'):
+    """
+    Open a file chooser dialoge with tkinter.
+    
+    :param default_dir: Where to open the dir, if set to None, will start at wdir
+    :param exts: A string or list of strings with extensions etc: 'txt' or ['txt','csv']
+    :returns: the chosen file
+    """
+    root = Tk()
+    root.iconify()
+    root.update()
+    if isinstance(exts, str): exts = [exts]
+    if mode=='open':
+       name = askopenfilename(initialdir=default_dir,
+                              default_file=default_file,
+                              parent=root,
+                              title = title,
+                              filetypes =(*[("File", "*.{}".format(ext)) for ext in exts],
+                                           ("All Files","*.*")))
+    elif mode=='save':
+        name = asksaveasfilename(initialdir=default_dir,
+                              default_file=default_file,
+                              parent=root,
+                              title = title,
+                              filetypes =(*[("File", "*.{}".format(ext)) for ext in exts],
+                                         ("All Files","*.*")))
+        if not name.endswith(exts[0]):
+            name += f'.{exts[0]}'
+    else:
+        raise Exception(f'unknown mode: {mode}')
+    root.update()
+    root.destroy()
+    if not os.path.exists(name):
+        print("No file chosen")
+    else:
+        return name
 
 def plotmulti(*args):
     """
@@ -35,6 +80,124 @@ def plotmulti(*args):
         plt.subplot(len(args), 1, i+1)
         plt.plot(sig, linewidth=0.5)
 
+def display_textbox(title='Enter text', label='Please enter text'):
+    window = tk.Tk()
+    window.title()
+       
+    # Label
+    label = tk.Label(window, text=label)
+    label.pack()
+       
+    # Text input field with line wrapping
+    text_input = tk.Text(window, wrap=tk.WORD, height=5, width=50,)
+    text_input.configure(font=("Arial", 8))  # Reducing font size
+
+    text_input.pack(pady=5, padx=5)
+       
+    x = ['']
+    # OK button
+    def on_ok():
+        # Get the text from the input field
+        text = text_input.get("1.0", tk.END).strip()
+        x[0] = text
+        window.destroy()  # Close the window
+
+    ok_button = tk.Button(window, text="OK", command=on_ok)
+    ok_button.pack()
+
+    # Run the Tkinter event loop
+    window.mainloop()
+    return x[0]
+
+
+def display_listbox(items1, items2, title='select items'):
+    # Create main tkinter window
+    root = Tk()
+    root.title(title)
+    
+    # Create labels
+    label1 = Label(root, text="Select EEG")
+    label1.grid(row=0, column=0)
+    
+    label2 = Label(root, text="Select EOG")
+    label2.grid(row=0, column=1)
+    
+    # Create listboxes
+    listbox1 = Listbox(root, selectmode=tk.EXTENDED, exportselection=False)
+    listbox1.grid(row=1, column=0)
+    for item in items1:
+        listbox1.insert(tk.END, str(item))
+    
+    listbox2 = Listbox(root, selectmode=tk.EXTENDED,exportselection=False)
+    listbox2.grid(row=1, column=1)
+    for item in items2:
+        listbox2.insert(tk.END, str(item))
+        
+    # Create scrollbars
+    scrollbar1 = tk.Scrollbar(root, orient=tk.VERTICAL, command=listbox1.yview)
+    scrollbar1.grid(row=1, column=0, sticky=tk.NS+tk.E)
+    listbox1.config(yscrollcommand=scrollbar1.set)
+    
+    scrollbar2 = tk.Scrollbar(root, orient=tk.VERTICAL, command=listbox2.yview)
+    scrollbar2.grid(row=1, column=1, sticky=tk.NS+tk.E)
+    listbox2.config(yscrollcommand=scrollbar2.set)     
+    # Bind listbox selection event to synchronize selection
+ 
+    # Create OK button
+    ok_button = tk.Button(root, text="OK", command=root.quit)
+    ok_button.grid(row=2, columnspan=2, pady=10)
+    
+    # Run the tkinter event loop
+    root.mainloop()
+    
+    selected_item_list1 = listbox1.curselection()
+    selected_item_list2 = listbox2.curselection()
+    
+    selected_items1 = [listbox1.get(idx) for idx in selected_item_list1]
+    selected_items2 = [listbox2.get(idx) for idx in selected_item_list2]
+    root.destroy()
+    
+    return selected_items1, selected_items2
+
+def create_psg_plot(api_token=None):
+    if api_token is None:
+        api_token = display_textbox(title='Enter API key',
+            label="Please enter U-Sleep API token obtained from https://sleep.ai.ku.dk")
+    file = choose_file(exts=['eeg', 'edf', 'fif', 'bdf'])
+    if file.endswith('.eeg'):  # brainvision file is actually the header
+        file = file[:-4] + '.vhdr'
+    # load data header
+    raw = mne.io.read_raw(file, preload=False)
+    
+    # let user choose the channels to be used
+    recommended = ['z', 'c4', 'c3', 'f3', 'f4', 'p4', 'p3']
+    func = lambda x: any([y in x.lower() for y in recommended])
+    eogs = sorted(raw.ch_names, key=lambda x:'AAA' if 'eog' in x.lower() else x)
+    eegs = sorted(raw.ch_names, key=lambda x:'AAA' if func(x) else x)
+    title = 'Select channels that will be used for prediction'
+    eeg_chs, eog_chs = display_listbox(eegs, eogs, title=title)
+    
+    # remove channels that were not selected
+    raw.drop_channels([ch for ch in raw.ch_names if not ch in eeg_chs+eog_chs])
+    if raw.info['sfreq']>128:
+        print('downsampling to 128 hz')
+        raw.resample(128, n_jobs=-1)
+    raw.filter(0.1, 45, n_jobs=-1)
+    
+    hypno_file = os.path.splitext(file)[0] + '_hypno.txt'
+    hypno = usleep_utils.predict_usleep_raw(raw, api_token, eeg_chs=eeg_chs,
+                                            eog_chs=eog_chs, saveto=hypno_file)
+    
+    for ch in eeg_chs:
+        png_file = os.path.splitext(file)[0] + f'_{ch}.png'
+        fig, axs = plt.subplots(2, 1, figsize=[10, 8])
+        plot_hypnogram(hypno, ax=axs[0])
+        specgram_multitaper(raw.get_data(ch), raw.info['sfreq'], ax=axs[1], ufreq=30)
+        fig.suptitle(f'Hypnogram and spectrogram for {ch} for {os.path.basename(file)}')
+        plt.pause(0.1)
+        fig.tight_layout()
+        fig.savefig(png_file)
+        
 
 def color_background(cvalues, stepsize=None, cmap='RdYlGn_r'):
     """
