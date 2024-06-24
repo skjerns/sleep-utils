@@ -27,33 +27,38 @@ from matplotlib.colors import ListedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import zscore
 import tkinter as tk
-from tkinter import Tk, Listbox, Label
-from tkinter.filedialog import askopenfilename, asksaveasfilename
+from tkinter import Listbox, Scrollbar, Label, Tk
+from tkinter.filedialog import askopenfilename, asksaveasfilename, askopenfiles
 from sleep_utils import usleep_utils
 
 
 
-def choose_file(default_dir=None, default_file=None, exts='txt', 
-                title='Choose file', mode='open'):
+def choose_file(default_dir=None, default_file=None, exts='txt',
+                title='Choose file', mode='open', multiple=False):
     """
     Open a file chooser dialoge with tkinter.
-    
+
     :param default_dir: Where to open the dir, if set to None, will start at wdir
     :param exts: A string or list of strings with extensions etc: 'txt' or ['txt','csv']
     :returns: the chosen file
     """
     root = Tk()
-    root.iconify()
+    root.deiconify()
+    root.lift()
+    root.attributes('-topmost', True)
+    root.attributes('-topmost', False)
     root.update()
     if isinstance(exts, str): exts = [exts]
     if mode=='open':
        name = askopenfilename(initialdir=default_dir,
                               default_file=default_file,
                               parent=root,
+                              multiple=multiple,
                               title = title,
                               filetypes =(*[("File", "*.{}".format(ext)) for ext in exts],
                                            ("All Files","*.*")))
     elif mode=='save':
+        assert not multiple, 'multiple must be false for saving'
         name = asksaveasfilename(initialdir=default_dir,
                               default_file=default_file,
                               parent=root,
@@ -66,8 +71,8 @@ def choose_file(default_dir=None, default_file=None, exts='txt',
         raise Exception(f'unknown mode: {mode}')
     root.update()
     root.destroy()
-    if not os.path.exists(name):
-        print("No file chosen")
+    if not name:
+        print("ERROS: No file chosen")
     else:
         return name
 
@@ -80,20 +85,27 @@ def plotmulti(*args):
         plt.subplot(len(args), 1, i+1)
         plt.plot(sig, linewidth=0.5)
 
-def display_textbox(title='Enter text', label='Please enter text'):
+def display_textbox(title='Enter text', label='Please enter text', text=''):
     window = tk.Tk()
+    window.deiconify()
+    window.lift()
+    window.attributes('-topmost', True)
+    window.attributes('-topmost', False)
     window.title()
-       
+
     # Label
     label = tk.Label(window, text=label)
     label.pack()
-       
+
     # Text input field with line wrapping
     text_input = tk.Text(window, wrap=tk.WORD, height=5, width=50,)
     text_input.configure(font=("Arial", 8))  # Reducing font size
 
     text_input.pack(pady=5, padx=5)
-       
+
+    if text:
+        text_input.insert(tk.END, text)
+
     x = ['']
     # OK button
     def on_ok():
@@ -110,94 +122,69 @@ def display_textbox(title='Enter text', label='Please enter text'):
     return x[0]
 
 
-def display_listbox(items1, items2, title='select items'):
+def display_listbox(lists, selected=[], labels=[], title='select items'):
     # Create main tkinter window
     root = Tk()
+    root.deiconify()
+    root.lift()
+    root.attributes('-topmost', True)
+    root.attributes('-topmost', False)
     root.title(title)
-    
+
+    assert len(selected)<=len(lists), 'more selected than lists'
+    assert len(labels)<=len(lists), 'more labels than lists'
+    assert isinstance(lists, (list, tuple)), 'lists must be list of lists'
+    for items in lists:
+        assert isinstance(items, (list, tuple)), 'items must be list of lists'
+
+    num_listboxes = len(lists)
+
     # Create labels
-    label1 = Label(root, text="Select EEG")
-    label1.grid(row=0, column=0)
-    
-    label2 = Label(root, text="Select EOG")
-    label2.grid(row=0, column=1)
-    
-    # Create listboxes
-    listbox1 = Listbox(root, selectmode=tk.EXTENDED, exportselection=False)
-    listbox1.grid(row=1, column=0)
-    for item in items1:
-        listbox1.insert(tk.END, str(item))
-    
-    listbox2 = Listbox(root, selectmode=tk.EXTENDED,exportselection=False)
-    listbox2.grid(row=1, column=1)
-    for item in items2:
-        listbox2.insert(tk.END, str(item))
-        
-    # Create scrollbars
-    scrollbar1 = tk.Scrollbar(root, orient=tk.VERTICAL, command=listbox1.yview)
-    scrollbar1.grid(row=1, column=0, sticky=tk.NS+tk.E)
-    listbox1.config(yscrollcommand=scrollbar1.set)
-    
-    scrollbar2 = tk.Scrollbar(root, orient=tk.VERTICAL, command=listbox2.yview)
-    scrollbar2.grid(row=1, column=1, sticky=tk.NS+tk.E)
-    listbox2.config(yscrollcommand=scrollbar2.set)     
-    # Bind listbox selection event to synchronize selection
- 
+    lbls = []
+    listboxes = []
+
+    for i in range(num_listboxes):
+        items = lists[i]
+        preselected = selected[i] if i<len(selected) else []
+        text = labels[i] if i<len(labels) else ''
+
+        # create labels
+        label = Label(root, text=text)
+        label.grid(row=0, column=i)
+        lbls.append(label)
+
+        # Create listboxes
+        listbox = Listbox(root, selectmode=tk.MULTIPLE, exportselection=False)
+        listbox.grid(row=1, column=i)
+        listboxes.append(listbox)
+
+        for item in items:
+            listbox.insert(tk.END, str(item))
+            if item in preselected:
+                listbox.selection_set(items.index(item))  # Select the item
+
+        # Create scrollbar for each listbox
+        scrollbar = Scrollbar(root, orient=tk.VERTICAL, command=listbox.yview)
+        scrollbar.grid(row=1, column=i, sticky=tk.NS+tk.E)
+        listbox.config(yscrollcommand=scrollbar.set)
+
     # Create OK button
     ok_button = tk.Button(root, text="OK", command=root.quit)
-    ok_button.grid(row=2, columnspan=2, pady=10)
-    
+    ok_button.grid(row=2, columnspan=num_listboxes, pady=10)
+
     # Run the tkinter event loop
     root.mainloop()
-    
-    selected_item_list1 = listbox1.curselection()
-    selected_item_list2 = listbox2.curselection()
-    
-    selected_items1 = [listbox1.get(idx) for idx in selected_item_list1]
-    selected_items2 = [listbox2.get(idx) for idx in selected_item_list2]
-    root.destroy()
-    
-    return selected_items1, selected_items2
 
-def create_psg_plot(api_token=None):
-    if api_token is None:
-        api_token = display_textbox(title='Enter API key',
-            label="Please enter U-Sleep API token obtained from https://sleep.ai.ku.dk")
-    file = choose_file(exts=['eeg', 'edf', 'fif', 'bdf'])
-    if file.endswith('.eeg'):  # brainvision file is actually the header
-        file = file[:-4] + '.vhdr'
-    # load data header
-    raw = mne.io.read_raw(file, preload=False)
-    
-    # let user choose the channels to be used
-    recommended = ['z', 'c4', 'c3', 'f3', 'f4', 'p4', 'p3']
-    func = lambda x: any([y in x.lower() for y in recommended])
-    eogs = sorted(raw.ch_names, key=lambda x:'AAA' if 'eog' in x.lower() else x)
-    eegs = sorted(raw.ch_names, key=lambda x:'AAA' if func(x) else x)
-    title = 'Select channels that will be used for prediction'
-    eeg_chs, eog_chs = display_listbox(eegs, eogs, title=title)
-    
-    # remove channels that were not selected
-    raw.drop_channels([ch for ch in raw.ch_names if not ch in eeg_chs+eog_chs])
-    if raw.info['sfreq']>128:
-        print('downsampling to 128 hz')
-        raw.resample(128, n_jobs=-1)
-    raw.filter(0.1, 45, n_jobs=-1)
-    
-    hypno_file = os.path.splitext(file)[0] + '_hypno.txt'
-    hypno = usleep_utils.predict_usleep_raw(raw, api_token, eeg_chs=eeg_chs,
-                                            eog_chs=eog_chs, saveto=hypno_file)
-    
-    for ch in eeg_chs:
-        png_file = os.path.splitext(file)[0] + f'_{ch}.png'
-        fig, axs = plt.subplots(2, 1, figsize=[10, 8])
-        plot_hypnogram(hypno, ax=axs[0])
-        specgram_multitaper(raw.get_data(ch), raw.info['sfreq'], ax=axs[1], ufreq=30)
-        fig.suptitle(f'Hypnogram and spectrogram for {ch} for {os.path.basename(file)}')
-        plt.pause(0.1)
-        fig.tight_layout()
-        fig.savefig(png_file)
-        
+    # Gather selected items before closing
+    selected_items = []
+    for i in range(num_listboxes):
+        selected_item_list = listboxes[i].curselection()
+        selected_items.append([listboxes[i].get(idx) for idx in selected_item_list])
+
+    root.destroy()
+    return selected_items
+
+
 
 def color_background(cvalues, stepsize=None, cmap='RdYlGn_r'):
     """
@@ -295,7 +282,8 @@ def plot_confusion_matrix(confmat, target_names=None, ax=None, title='',
 
 
 def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
-                   verbose=True, xlabel=True, ylabel=True, **kwargs,):
+                   starttime=None, verbose=True, xlabel=True, ylabel=True,
+                   **kwargs,):
     """
     Plot a hypnogram, the flexible way.
 
@@ -400,10 +388,12 @@ def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
     y[y == 99] = y.min()-1  # make sure Unknown stage is plotted below all else
 
     if ax is None:
-        plt.figure()
-        ax = matplotlib.pyplot.gca()
+        fig, ax = plt.subplots(1, 1)
+    else:
+        fig = ax.figure
+    timeoffset = 0 if starttime is None else (starttime.hour*60*60+starttime.minute*60)//300*300
     formatter = matplotlib.ticker.FuncFormatter(
-        lambda s, x: time.strftime('%H:%M', time.gmtime(s)))
+        lambda s, x: time.strftime('%H:%M', time.gmtime(s+timeoffset)))
 
     ax.plot(x, y, **kwargs)
     ax.set_xlim(0, x[-1])
@@ -413,16 +403,19 @@ def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
     ax.set_yticklabels(labels)
     ax.set_xticks(np.arange(0, x[-1], 3600))
     if xlabel:
-        plt.xlabel('Time after recording start')
+        if starttime:
+            ax.set_xlabel('Time of day')
+        else:
+            ax.set_xlabel('Time elapsed after recording start')
     if ylabel:
-        plt.ylabel('Sleep Stage')
+        ax.set_ylabel('Sleep Stage')
     if title is not None:
         ax.set_title(title)
 
     try:
         warnings.filterwarnings(
             "ignore", message='This figure includes Axes that are not compatible')
-        plt.tight_layout()
+        fig.tight_layout()
     except Exception:
         pass
 

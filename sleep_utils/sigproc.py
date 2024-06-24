@@ -571,7 +571,7 @@ def get_shift(signal1, signal2, sfreq, limit_to=1):
     shift = len(signal2) - peak -1 
     return -shift
 
-def get_correlation(signal1, signal2, sfreq, llim=2, ulim=20):
+def get_shift_correlation(signal1, signal2, sfreq, llim=2, ulim=20):
     """
     find the shift of signal1 to signal2, used for aligning two signals
     
