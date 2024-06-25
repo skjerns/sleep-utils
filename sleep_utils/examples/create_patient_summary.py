@@ -82,7 +82,7 @@ report_dir = f'{os.path.dirname(files[0])}/report/'
 os.makedirs(report_dir, exist_ok=True)
 
 #%% plot hypnograms & stages pie chart
-fig1, ax1 = plt.subplots(1, 1, figsize=[10, 3], dpi=200)
+fig1, ax1 = plt.subplots(1, 1, figsize=[9, 3], dpi=200)
 fig2, ax2 = plt.subplots(1, 1, figsize=[5, 5], dpi=200)
 
 night_names = ['Gewöhnungsnacht', 'Nacht 1', 'Nacht 2']
@@ -102,10 +102,21 @@ for raw, hypno in zip(raws, hypnos):
                    title=f"Schlafprofil für '{night}', Start um {starttime}")
 
     # filter annotations that they are not overlapping in the plot
-    tdiffs = np.pad(np.diff([annot['onset'] for annot in raw.annotations[1:]]).round(2), [0,1], constant_values=301)
-    annotations = [annot for annot, tdiff in zip(raw.annotations[1:], tdiffs) if tdiff>300]
+    # first split into blocks with 5 minute no annotation as separators
+    # then take the first and the last annotation of that block.
+    annotations = [annot for annot in raw.annotations if not 'New Segment' in annot['description']]
 
-    for i, annot in enumerate(annotations):
+    tdiffs = np.diff([annot['onset'] for annot in annotations])
+    annot_blocks_first = [annot for annot, tdiff in zip(annotations[1:], tdiffs, strict=True) if tdiff>300]
+    annot_blocks_last = [annot for annot, tdiff in zip(annotations[:-1], tdiffs, strict=True) if tdiff>300]
+
+    last_evening_marker = annot_blocks_last[0]
+    first_morning_marker = annot_blocks_first[-1]
+
+    lights_off_epoch = int(last_evening_marker['onset']//30)
+    lights_on_epoch = int(first_morning_marker['onset']//30)
+
+    for i, annot in enumerate(annot_blocks_last + annot_blocks_first[-1:]):
         onset = annot['onset']
         duration = annot['duration']
         desc = annot['description'].replace('Comment/', '')
@@ -119,7 +130,7 @@ for raw, hypno in zip(raws, hypnos):
     ax = ax2
     ax.clear()
     starttime = raw.info["meas_date"].replace(microsecond=0, tzinfo=None) # remove timezone and millisecond info
-    summary = sleep_utils.hypno_summary(hypno)
+    summary = sleep_utils.hypno_summary(hypno, lights_on_epoch=lights_on_epoch, lights_off_epoch=lights_off_epoch)
     summaries += [pd.Series(summary, name=night)]
     values = [summary['WASO'], summary['min_S1'], summary['min_S2'], summary['min_S3'], summary['min_REM']]
     percent = [summary['perc_W'], summary['perc_S1'], summary['perc_S2'], summary['perc_S3'], summary['perc_REM']]
@@ -167,11 +178,11 @@ summaries += [pd.Series({
     'perc_S3': '10-25%',  # Percentage of stage S3 time
     'perc_REM': '15-30%',  # Percentage of REM sleep time
     'lat_S1': '5-15',  # Latency to stage S1 in minutes
-    'lat_S2': '10-20',  # Latency to stage S2 in minutes
+    'lat_S2': '5-20',  # Latency to stage S2 in minutes
     'lat_S3': '20-40',  # Latency to stage S3 in minutes
     'lat_REM': '70-120',  # Latency to REM sleep in minutes
-    'sleep_onset_after_rec_start': 'N/A',  # Sleep onset after recording start in minutes
-    'sleep_offset_after_rec_start': 'N/A',  # Sleep offset after recording start
+    'lights_off': 'N/A',  # Sleep onset after recording start in minutes
+    'lights_on': 'N/A',  # Sleep offset after recording start
     'recording_length': 'N/A',  # Recording length in minutes (7 to 10 hours)
     'awakenings': '0-15',  # Number of awakenings
     'mean_dur_awakenings': '1-5',  # Mean duration of awakenings in minutes
@@ -202,8 +213,8 @@ full_names = {
     'lat_S2': 'Latenz bis Schlafphase S2',
     'lat_S3': 'Latenz bis Schlafphase S3',
     'lat_REM': 'Latenz bis REM-Schlaf',
-    'sleep_onset_after_rec_start': 'Schlafbeginn nach Aufzeichnungsstart',
-    'sleep_offset_after_rec_start': 'Schlafende nach Aufzeichnungsstart',
+    'lights_off': 'Wann in etwa das Licht ausgemacht wurde',
+    'lights_on': 'Wann in etwa das Licht angemacht wurde',
     'recording_length': 'Aufzeichnungsdauer',
     'awakenings': 'Anzahl kurzes Aufwachen',
     'mean_dur_awakenings': 'Durchschnittliche Dauer des Aufwachens',
@@ -217,20 +228,56 @@ df_summaries.index = [full_names[name] for name in df_summaries.index]
 
 #%% create MarkDown file
 
-string = f"# Schlafreport für Proband:in {participant_id}\n"
-string += '### Schlafprofil and Schlafphasenverteilung\n\n'
+string = f"# Ihre Schlafdaten im Überblick\n"
+string += """Im Folgenden finden Sie eine Übersicht über Ihre Schlafdaten. Die Analyse umfasst verschiedene Parameter, die wir näher erklären.
+
+### Hypnogramm und Schlafphasen:
+
+Hypnogramme (oben): Diese Diagramme zeigen Ihre Schlafstadien über drei verschiedene Nächte:
+- **Adaptationsnacht:** Diese Nacht diente dazu, sich an die Schlafumgebung zu gewöhnen.
+- **Nacht 1:** Diese Nacht wurde vor der Rauchentwöhnung aufgezeichnet.
+- **Nacht 2:** Diese Nacht wurde nach der Rauchentwöhnung aufgezeichnet.
+
+Tortendiagramme (unten): Diese Diagramme stellen die prozentuale Verteilung der verschiedenen Schlafphasen dar:
+
+- **W:** Wachzustand
+- **REM:** REM-Schlaf (Rapid Eye Movement)
+- **S1:** Schlafstadium 1 (Einschlafphase)
+- **S2:** Schlafstadium 2 (leichter Schlaf)
+- **SWS:** Tiefschlaf (Slow-Wave Sleep, auch S3 genannt)
+
+"""
+
 for i, hypno_png in enumerate(hypno_pngs):
-    string += f'<img src="./{os.path.basename(hypno_png)}" alt="hypno_{i}" width="100%"/><br><br>'
+    string += f'<img src="./{os.path.basename(hypno_png)}" alt="hypno_{i}" width="75%"/><br><br>'
     # string += f'![hypnogram_{i}](./{os.path.basename(hypno_png)})\n\n'
 
-string += '\n\n<div style="display: flex; justify-content: center; align-items: center;">'
 
 for i, dist_png in enumerate(dist_pngs):
     string += f'<img src="./{os.path.basename(dist_png)}" alt="dist_{i}" width="{1/len(dist_pngs)*100}%"/>'
 
-string += '</div>\n'
 string += '<div style="page-break-after: always;"></div><br>'
-string += f"\n\n\n### Tabellarische Werte\n\n{df_summaries.to_markdown(stralign='right')}\n"
+
+string += f"\n\n\n\n### Parameter-Tabelle\n{df_summaries.to_markdown(stralign='right')}\n"
+string += """
+
+**Erklärungen zu den Schlafphasen**
+
+- **S1 (Einschlafphase):** Dies ist die leichteste Schlafphase, die als Übergang zwischen Wachsein und Schlafen dient. In dieser Phase können leichte Bewegungen und schnelle Wechsel zurück ins Wachsein vorkommen.
+- **S2 (Leichtschlaf):** Dies ist eine Phase des leichten Schlafs, die den Großteil des Schlafs ausmacht. In dieser Phase verlangsamt sich die Herzfrequenz und die Körpertemperatur sinkt. Es ist schwieriger, aus dieser Phase aufzuwachen als aus S1.
+- **S3 (Tiefschlaf):** Diese Phase ist auch als Tiefschlaf oder Slow-Wave Sleep (SWS) bekannt. Sie ist für die körperliche Erholung und das Immunsystem besonders wichtig. Aufwachen aus dieser Phase kann zu Desorientierung führen.
+- **REM (Rapid Eye Movement) Schlaf:** Diese Phase ist durch schnelle Augenbewegungen gekennzeichnet und wird oft mit intensivem Träumen in Verbindung gebracht. Der REM-Schlaf spielt eine wichtige Rolle bei der Verarbeitung von Informationen und dem Gedächtnis.
+
+
+
+**Wichtige Hinweise**
+
+Bitte beachten Sie, dass diese Analyse keine medizinische Untersuchung ersetzt. Die dargestellten Daten können Fehler enthalten und die Richtwerte sind nur als grobe Orientierung zu verstehen. Es ist völlig normal, dass einzelne Nächte von diesen Durchschnittswerten abweichen. Die Durchschnittswerten basieren auf Mittelwerten von Analysen über viele Nächte einer grossen Probandengruppe.
+
+Nochmals vielen Dank für Ihre Teilnahme und Ihr Vertrauen!
+
+Ihr Studienteam"""
+
 
 file_md = f'{report_dir}/report_{participant_id}.md'
 
@@ -247,19 +294,23 @@ import pdfkit
 
 file_pdf = os.path.splitext(file_md)[0] + '.pdf'
 # Convert Markdown to HTML
-html_text = markdown2.markdown(string.replace('./', report_dir),  extras=['tables'])
+html_text = markdown2.markdown(string.replace('./', report_dir),  extras=['tables', 'fenced-code-blocks', 'cuddled-lists'])
 # Add inline CSS for better table formatting
 html_text = f"""
     <html>
     <head>
 <meta charset="UTF-8">
 <style>
+body {{
+    font-family: Arial, sans-serif;
+    font-size: 13px; /* Decreased global font size by 1 point */
+}}
 table {{
     width: 70%;
     border-collapse: collapse;
 }}
 th, td {{
-    padding: 6px ; /* Add more space between columns */
+    padding: 5px 6px ; /* Add more space between columns */
     text-align: left;
 }}
 th {{

@@ -64,14 +64,13 @@ def analyze_function(fun):
     else:
         print('Changes shift')
 
-def hypno_summary(hypno, epochlen=30, print_summary=False):
-    """
-    param hypno: a hypnogram with stages in format
-                 W:0, S1:1, S2:2, S3:3, REM:4
-    param epochlen: the lenght of each entry in the hypnogram, e.g. 30 seconds
+def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
+                  print_summary=False):
+    """ summarizes the sleep parameters according to the AASM recommendations
 
-    summarizes the sleep parameters according to the AASM recommendations
-
+    It is assumed that the hypnogram is starting with the lights off marker and
+    ending with the lights on marker. Otherwise, the epoch in which the night
+    started and ended must be indicated.
 
         TST:     total sleep time - sum of minutes of sleep stages other than W
         TBT:     total bed time - duration from sleep onset to offset
@@ -102,13 +101,11 @@ def hypno_summary(hypno, epochlen=30, print_summary=False):
     For details and definitions see Iber et al (2007) The AASM Manual for the
     Scoring of Sleep and Associated Events.
 
-    NB:
-    sleep onset is defined by the AASM as the first non Wake epoch.
-    Currently all parameters using lights out/lights on (eg. sleep efficiency)
-    are not supported yet. Therefore, TRT will rely on sleep onset and sleep
-    offset as markers for its calculation.
-
-
+    :param hypno: a hypnogram in format W:0, S1:1, S2:2, S3:3, REM:4
+    :param epochlen: the lenght of each entry in the hypnogram, e.g. 30 seconds
+    :param lights_off_epoch: at which epoch lights were turned off
+    :param lights_on_epoch: at which epoch lights were turned on
+    :param print_summary: print output or not
     """
     hypno = np.array(hypno)
 
@@ -124,16 +121,19 @@ def hypno_summary(hypno, epochlen=30, print_summary=False):
                           'calculations will likely be wrong. Please '
                           'either transform to another stage (e.g. W) or'
                           ' remove from hypnogram.')
+    # convert negative indices, e.g. -1 to their correct positive index
+    lights_off_epoch = np.arange(len(hypno))[lights_off_epoch]
+    lights_on_epoch = np.arange(len(hypno))[lights_on_epoch]
 
-    onset = np.where(hypno!=0)[0][0] # first non-W epoch
-    offset = np.where(hypno!=0)[0][-1] # last non-W epoch
+    sleep_onset = np.where(hypno!=0)[0][0] # first non-W epoch
+    sleep_offset = np.where(hypno!=0)[0][-1] # last non-W epoch
 
     TST = (sum(hypno!=0)*epochlen)/60
-    TBT = (offset-onset)*epochlen/60
+    TBT = (lights_on_epoch-lights_off_epoch)*epochlen/60
     TRT = len(hypno)*epochlen//60
     SE = np.round(TST/TBT, 2)
 
-    WASO = TBT-TST
+    WASO = (sleep_offset-sleep_onset)*epochlen/60-TST
     min_S1 = sum(hypno==1)*epochlen/60
     min_S2 = sum(hypno==2)*epochlen/60
     min_S3 = sum(hypno==3)*epochlen/60
@@ -146,13 +146,13 @@ def hypno_summary(hypno, epochlen=30, print_summary=False):
     perc_S3 = np.round(min_S3/TST * 100, 1)
     perc_REM = np.round(min_REM/TST * 100, 1)
 
-    lat_S1 = 'N/A' #(np.argmax(hypno==1)-onset)*epochlen/60
-    lat_S2 = (np.argmax(hypno==2)-onset)*epochlen/60
-    lat_S3 = (np.argmax(hypno==3)-onset)*epochlen/60
-    lat_REM = (np.argmax(hypno==4)-onset)*epochlen/60
+    lat_S1 = (np.argmax(hypno==1)-lights_off_epoch)*epochlen/60
+    lat_S2 = (np.argmax(hypno==2)-lights_off_epoch)*epochlen/60
+    lat_S3 = (np.argmax(hypno==3)-lights_off_epoch)*epochlen/60
+    lat_REM = (np.argmax(hypno==4)-lights_off_epoch)*epochlen/60
 
-    sleep_onset_after_rec_start = onset*epochlen/60 # now convert to minutes
-    sleep_offset_after_rec_start = offset*epochlen/60 # now convert to minutes
+    lights_off = lights_off_epoch*epochlen/60
+    lights_on = lights_on_epoch*epochlen/60
     recording_length = len(hypno)*epochlen/60
 
     awakenings = 0
@@ -187,11 +187,15 @@ def hypno_summary(hypno, epochlen=30, print_summary=False):
     summary = locals().copy()
     ignore = ['verbose', 'epochlen', 'stage', 'sleep_stages', 'num', 'hypno',
               'offset', 'onset', 'group', 'i',  'group_list', 'in_rem',
-              'print_summary']
+              'print_summary', 'lights_on_epoch', 'lights_off_epoch',
+              'sleep_onset', 'sleep_offset']
     for var in ignore:
         if not var in summary:
             continue
         del summary[var]
+
+    for name, value in summary.items():
+        assert value>=0, f'{name} has {value=}, should be positive or 0'
 
     if print_summary:
         pprint(summary)
