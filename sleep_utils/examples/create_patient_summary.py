@@ -168,28 +168,28 @@ summaries += [pd.Series({
     'TBT': '360-600',  # Total Bed Time in minutes (6 to 10 hours)
     'WASO': '0-30',  # Wake After Sleep Onset in minutes
     'min_S1': '10-30',  # Minutes in stage S1
-    'min_S2': '200-300',  # Minutes in stage S2
-    'min_S3': '30-90',  # Minutes in stage S3
-    'min_REM': '60-120',  # Minutes in REM sleep
-    'sum_NREM': '240-420',  # Sum of Minutes in Non-REM
+    'min_S2': '180-300',  # Minutes in stage S2
+    'min_S3': '30-120',  # Minutes in stage S3
+    'min_REM': '60-150',  # Minutes in REM sleep
+    'sum_NREM': '210-420',  # Sum of Minutes in Non-REM
     'perc_W': '1-5%',  # Percentage of wake time
     'perc_S1': '2-8%',  # Percentage of stage S1 time
     'perc_S2': '40-60%',  # Percentage of stage S2 time
     'perc_S3': '10-25%',  # Percentage of stage S3 time
     'perc_REM': '15-30%',  # Percentage of REM sleep time
-    'lat_S1': '5-15',  # Latency to stage S1 in minutes
-    'lat_S2': '5-20',  # Latency to stage S2 in minutes
+    'lat_S1': '5-25',  # Latency to stage S1 in minutes
+    'lat_S2': '10-30',  # Latency to stage S2 in minutes
     'lat_S3': '20-40',  # Latency to stage S3 in minutes
     'lat_REM': '70-120',  # Latency to REM sleep in minutes
     'lights_off': 'N/A',  # Sleep onset after recording start in minutes
     'lights_on': 'N/A',  # Sleep offset after recording start
     'recording_length': 'N/A',  # Recording length in minutes (7 to 10 hours)
     'awakenings': '0-15',  # Number of awakenings
-    'mean_dur_awakenings': '1-5',  # Mean duration of awakenings in minutes
+    'mean_dur_awakenings': '1-6',  # Mean duration of awakenings in minutes
     'FI': 'N/A',  # Fragmentation index
     'sleep_cycles': '3-5',  # Number of sleep cycles
     'stage_shifts': '10-70',  # Number of shifts of sleep stages
-    'SQI': '0.8-1.0',  # Sleep quality index (ratio)
+    'SQI': '0.7-1.0',  # Sleep quality index (ratio)
     'SE': '85-95%'  # Sleep efficiency percentage
     }, name='Richtwert')]
 
@@ -203,7 +203,7 @@ full_names = {
     'min_S2': 'Minuten in Schlafphase S2',
     'min_S3': 'Minuten in Schlafphase S3',
     'min_REM': 'Minuten im REM-Schlaf',
-    'sum_NREM': 'Minuten im Non-REM',
+    'sum_NREM': 'Minuten im Non-REM (S2+S3)',
     'perc_W': 'Prozent der Wachzeit',
     'perc_S1': 'Prozent der Schlafphase S1',
     'perc_S2': 'Prozent der Schlafphase S2',
