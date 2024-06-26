@@ -1,0 +1,10 @@
+mne
+pybv
+numpy
+pandas
+edfio
+tqdm
+matplotlib
+tabulate
+pdfkit
+markdown2

@@ -12,6 +12,7 @@ Create an A4 summary for patients including
 """
 import os
 import json
+import subprocess
 import mne
 import matplotlib.pyplot as plt
 import sleep_utils
@@ -225,7 +226,7 @@ full_names = {
     'SE': 'Schlafeffizienz'
 }
 df_summaries.index = [full_names[name] for name in df_summaries.index]
-
+df_summaries.index.set_names('Kennwert', inplace=True)
 #%% create MarkDown file
 
 string = f"# Ihre Schlafdaten im Überblick\n"
@@ -234,7 +235,7 @@ string += """Im Folgenden finden Sie eine Übersicht über Ihre Schlafdaten. Die
 ### Hypnogramm und Schlafphasen:
 
 Hypnogramme (oben): Diese Diagramme zeigen Ihre Schlafstadien über drei verschiedene Nächte:
-- **Adaptationsnacht:** Diese Nacht diente dazu, sich an die Schlafumgebung zu gewöhnen.
+- **Gewöhnungsnacht:** Diese Nacht diente dazu, sich an die Schlafumgebung zu gewöhnen.
 - **Nacht 1:** Diese Nacht wurde vor der Rauchentwöhnung aufgezeichnet.
 - **Nacht 2:** Diese Nacht wurde nach der Rauchentwöhnung aufgezeichnet.
 
@@ -258,7 +259,7 @@ for i, dist_png in enumerate(dist_pngs):
 
 string += '<div style="page-break-after: always;"></div><br>'
 
-string += f"\n\n\n\n### Parameter-Tabelle\n{df_summaries.to_markdown(stralign='right')}\n"
+string += f"\n\n\n\n## Tabellarische Werte\n{df_summaries.to_markdown(stralign='right')}\n"
 string += """
 
 **Erklärungen zu den Schlafphasen**
@@ -312,6 +313,7 @@ table {{
 th, td {{
     padding: 5px 6px ; /* Add more space between columns */
     text-align: left;
+    font-size: 12px; /* Decreased global font size by 1 point */
 }}
 th {{
     background-color: #bbbbbb; /* Distinct header background color */
@@ -336,3 +338,7 @@ tr:nth-child(odd) {{
 assert pdfkit.from_string(html_text, file_pdf), 'converting failed'
 
 print(f'PDF saved to {file_pdf}')
+
+subprocess.call(['open', file_pdf])
+
+input('Press enter to exit...')
