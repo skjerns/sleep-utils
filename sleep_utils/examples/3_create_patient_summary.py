@@ -133,15 +133,17 @@ for raw, hypno in zip(raws, hypnos):
     starttime = raw.info["meas_date"].replace(microsecond=0, tzinfo=None) # remove timezone and millisecond info
     summary = sleep_utils.hypno_summary(hypno, lights_on_epoch=lights_on_epoch, lights_off_epoch=lights_off_epoch)
     summaries += [pd.Series(summary, name=night)]
+    labels = ['Wach', 'S1', 'S2', 'SWS', 'REM']
     values = [summary['WASO'], summary['min_S1'], summary['min_S2'], summary['min_S3'], summary['min_REM']]
     percent = [summary['perc_W'], summary['perc_S1'], summary['perc_S2'], summary['perc_S3'], summary['perc_REM']]
-    labelszip = zip(['\nWach nach Einschlafen', 'S1', 'S2 (leicht)', 'S3 (tief)', 'REM'], values, percent, strict=True)
+    labelszip = zip(['\nWach', 'S1', 'S2', 'SWS', 'REM'], values, percent, strict=True)
     if plt.rcParams['text.usetex'] :
-        stageslabels = [f'\\textbf{{{l}}}\n({int(m)} min / {p:.01f}%)'for l, m, p in labelszip]
+        stageslabels = [f'\\textbf{{{l}}}'for l, m, p in labelszip]
     else:
-        stageslabels = [f'{l}\n({int(m)} min / {p:.01f}%)'for l, m, p in labelszip]
+        stageslabels = [f'{l}'for l, m, p in labelszip]
 
-    ax.pie(values, labels=stageslabels, explode=[0.025]*5)
+    autoptc = lambda x: f'{x:.1f} %\n{int(x*summary["TBT"]//100)} min'
+    ax.pie(percent, labels=labels, explode=[0.025]*5, autopct=autoptc, labeldistance=1.1, pctdistance=0.7)
     ax.set_title(f"Verteilung '{night}'", fontsize=14, fontweight='bold')
 
     hypno_png = f'{report_dir}/hypno_{basename}.png'
