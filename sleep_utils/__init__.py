@@ -10,6 +10,7 @@ This file contains all functions that deal with IO
 from . import plotting
 from . import tools
 from . import sigproc
+from . import external
 
 from .plotting import plot_hypnogram_overview
 from .plotting import specgram_multitaper, plot_hypnogram
