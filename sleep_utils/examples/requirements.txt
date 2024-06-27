@@ -8,3 +8,4 @@ matplotlib
 tabulate
 pdfkit
 markdown2
+usleep_api

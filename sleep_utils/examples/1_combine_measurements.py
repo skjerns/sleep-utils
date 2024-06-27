@@ -27,6 +27,9 @@ def common_prefix(strings):
             return shortest[:i]
     return shortest
 
+def config_save(config):
+    with open(config_file, 'w') as f:
+        config = json.dump(config, f)
 
 def config_load():
     if not os.path.isfile(config_file):
@@ -46,6 +49,8 @@ prev_dir = config.get('prev_dir', None)
 vhdr_files = choose_file(default_dir=prev_dir, exts=['vhdr'], multiple=True,
                          title='Choose files that should be combined')
 
+config['prev_dir'] = os.path.dirname(vhdr_files[0])
+config_save(config)
 
 basename = common_prefix(vhdr_files)
 print(f'Assuming the base name for this recording is {os.path.basename(basename)}')

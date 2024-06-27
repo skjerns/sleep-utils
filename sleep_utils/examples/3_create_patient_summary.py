@@ -152,6 +152,7 @@ for raw, hypno in zip(raws, hypnos):
     fig1.tight_layout(h_pad=3)
     fig2.tight_layout(h_pad=3)
     plt.pause(0.1)
+    fig1.tight_layout(h_pad=3)
     fig2.tight_layout(h_pad=3)
     plt.pause(0.1)
     fig1.savefig(hypno_png)
