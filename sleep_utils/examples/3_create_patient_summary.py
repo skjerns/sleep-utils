@@ -143,7 +143,8 @@ for raw, hypno in zip(raws, hypnos):
         stageslabels = [f'{l}'for l, m, p in labelszip]
 
     autoptc = lambda x: f'{x:.1f} %\n{int(x*summary["TBT"]//100)} min'
-    ax.pie(percent, labels=labels, explode=[0.025]*5, autopct=autoptc, labeldistance=1.1, pctdistance=0.7)
+    ax.pie(percent, labels=labels, explode=[0.025]*5, autopct=autoptc, textprops=dict(fontsize=16),
+           labeldistance=1.1, pctdistance=0.7)
     ax.set_title(f"Verteilung '{night}'", fontsize=14, fontweight='bold')
 
     hypno_png = f'{report_dir}/hypno_{basename}.png'
@@ -253,12 +254,12 @@ Tortendiagramme (unten): Diese Diagramme stellen die prozentuale Verteilung der 
 """
 
 for i, hypno_png in enumerate(hypno_pngs):
-    string += f'<img src="./{os.path.basename(hypno_png)}" alt="hypno_{i}" height="20%"/><br><br>'
+    string += f'<img src="./{os.path.basename(hypno_png)}" alt="hypno_{i}" height="220px"/><br><br>'
     # string += f'![hypnogram_{i}](./{os.path.basename(hypno_png)})\n\n'
 
 
 for i, dist_png in enumerate(dist_pngs):
-    string += f'<img src="./{os.path.basename(dist_png)}" alt="dist_{i}" width="{1/len(dist_pngs)*100}%"/>'
+    string += f'<img src="./{os.path.basename(dist_png)}" alt="dist_{i}" width="{1/(len(dist_pngs)+1)*100}%"/>'
 
 string += '<div style="page-break-after: always;"></div><br>'
 
