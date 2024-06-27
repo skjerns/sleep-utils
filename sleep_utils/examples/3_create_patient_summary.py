@@ -253,7 +253,7 @@ Tortendiagramme (unten): Diese Diagramme stellen die prozentuale Verteilung der 
 """
 
 for i, hypno_png in enumerate(hypno_pngs):
-    string += f'<img src="./{os.path.basename(hypno_png)}" alt="hypno_{i}" width="75%"/><br><br>'
+    string += f'<img src="./{os.path.basename(hypno_png)}" alt="hypno_{i}" height="20%"/><br><br>'
     # string += f'![hypnogram_{i}](./{os.path.basename(hypno_png)})\n\n'
 
 
