@@ -103,16 +103,19 @@ config['prev_eog_selected'] = eog_chs
 config['prev_ref_selected'] = ref_chs
 config_save(config)
 
-if not 'no re-referencing' in ref_chs:
-    raw.set_eeg_reference(ref_chs)
-    assert len(ref_chs)==1, f'If selecting no referencing, must not select anything else {ref_chs=}'
+raw.load_data(verbose='INFO')
+
+if 'no re-referencing' in ref_chs:
+    pass
 elif 'average' in ref_chs:
-    raw.set_eeg_reference('average')
     assert len(ref_chs)==1, f'If average referencing, must not select anything else {ref_chs=}'
+    raw.set_eeg_reference('average')
+else:
+    assert len(ref_chs)>0, f'must select at least one reference or no reference {ref_chs=}'
+    raw.set_eeg_reference(ref_chs)
 
 # remove channels that were not selected
 print('loading raw data')
-raw.load_data(verbose='INFO')
 raw_orig = raw.copy()
 raw.drop_channels([ch for ch in raw.ch_names if not ch in eeg_chs+eog_chs+ref_chs])
 if raw.info['sfreq']>128:
@@ -154,6 +157,7 @@ epoch_len = 10
 noise_png = f'{plot_dir}/{basename}_noise.png'
 fig, ax = plt.subplots(1, 1, figsize=[14, 8])
 
+
 data = raw_orig.get_data(picks='eeg')
 sfreq = raw_orig.info['sfreq']
 
@@ -161,8 +165,8 @@ data = data[:, :int(len(raw)//(30*sfreq)*epoch_len*sfreq)]
 data = data.reshape([len(data), -1, int(epoch_len*sfreq)])
 stds = np.std(data, axis=-1) # get std per epoch as noise marker
 
-# this is stupid as we are basically forcing 5% to be red
-vmax = stds.ravel().mean()*3
+# this is rather stupid, but worth a try
+vmax = np.median(np.median(stds, 1))*5
 
 ax.imshow(stds, cmap='RdYlGn_r', aspect='auto', interpolation='None', vmax=vmax)
 ax.set_yticks(np.arange(len(data)), raw_orig.ch_names, fontsize=6)

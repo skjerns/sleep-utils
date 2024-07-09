@@ -86,15 +86,19 @@ os.makedirs(report_dir, exist_ok=True)
 fig1, ax1 = plt.subplots(1, 1, figsize=[9, 3], dpi=200)
 fig2, ax2 = plt.subplots(1, 1, figsize=[5, 5], dpi=200)
 
-night_names = ['Gewöhnungsnacht', 'Nacht 1', 'Nacht 2']
+night_names = ['Gewöhnungsnacht', 'Nacht 1', 'Nacht 2', 'Nacht 3']
 
 hypno_pngs = []
 dist_pngs = []
 summaries = []
 
-for raw, hypno in zip(raws, hypnos):
+for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
     basename = os.path.basename(os.path.splitext(raw.filenames[0])[0])
-    night = night_names[int(basename[6])]  # night id at position 6 of filename
+    try:
+        n = int(basename[6])
+    except ValueError:
+        pass
+    night = night_names[n]  # night id at position 6 of filename
 
     ax = ax1
     ax.clear()
@@ -108,14 +112,25 @@ for raw, hypno in zip(raws, hypnos):
     annotations = [annot for annot in raw.annotations if not 'New Segment' in annot['description']]
 
     tdiffs = np.diff([annot['onset'] for annot in annotations])
-    annot_blocks_first = [annot for annot, tdiff in zip(annotations[1:], tdiffs, strict=True) if tdiff>300]
-    annot_blocks_last = [annot for annot, tdiff in zip(annotations[:-1], tdiffs, strict=True) if tdiff>300]
+    annot_blocks_first = [annot for annot, tdiff in zip(annotations[1:], tdiffs) if tdiff>300]
+    annot_blocks_last = [annot for annot, tdiff in zip(annotations[:-1], tdiffs) if tdiff>300]
 
-    last_evening_marker = annot_blocks_last[0]
-    first_morning_marker = annot_blocks_first[-1]
+    last_evening_marker = annot_blocks_last[0] if len(annot_blocks_last)>0 else {}
+    first_morning_marker = annot_blocks_first[-1] if len(annot_blocks_first)>0 else {}
+    
+        
 
-    lights_off_epoch = int(last_evening_marker['onset']//30)
-    lights_on_epoch = int(first_morning_marker['onset']//30)
+    lights_off_epoch = int(last_evening_marker.get('onset', 0)//30)
+    lights_on_epoch = int(first_morning_marker.get('onset', -30 + len(raw)/raw.info['sfreq'])//30)
+
+    if lights_off_epoch > np.argmax(hypno>0):
+        # sometimes no annotations match, then the values are off
+        lights_off_epoch = np.argmax(hypno>0)
+        
+    if lights_on_epoch < len(hypno)- np.argmax(hypno[::-1]>0): 
+        # sometimes no annotations match, then the values are off
+        lights_on_epoch = len(hypno)- np.argmax(hypno[::-1]>0)
+
 
     for i, annot in enumerate(annot_blocks_last + annot_blocks_first[-1:]):
         onset = annot['onset']
@@ -136,7 +151,7 @@ for raw, hypno in zip(raws, hypnos):
     labels = ['Wach', 'S1', 'S2', 'SWS', 'REM']
     values = [summary['WASO'], summary['min_S1'], summary['min_S2'], summary['min_S3'], summary['min_REM']]
     percent = [summary['perc_W'], summary['perc_S1'], summary['perc_S2'], summary['perc_S3'], summary['perc_REM']]
-    labelszip = zip(['\nWach', 'S1', 'S2', 'SWS', 'REM'], values, percent, strict=True)
+    labelszip = zip(['\nWach', 'S1', 'S2', 'SWS', 'REM'], values, percent)
     if plt.rcParams['text.usetex'] :
         stageslabels = [f'\\textbf{{{l}}}'for l, m, p in labelszip]
     else:
@@ -236,6 +251,11 @@ df_summaries.index.set_names('Kennwert', inplace=True)
 string = f"# Ihre Schlafdaten im Überblick\n"
 string += """Im Folgenden finden Sie eine Übersicht über Ihre Schlafdaten. Die Analyse umfasst verschiedene Parameter, die wir näher erklären.
 
+**Wichtige Hinweise**
+
+Bitte beachten Sie, dass diese Analyse keine medizinische Untersuchung ist. Die dargestellten Daten können Fehler enthalten und die Richtwerte sind nur als grobe Orientierung zu verstehen. Es ist völlig normal, dass einzelne Nächte von diesen Durchschnittswerten abweichen. Die Durchschnittswerten basieren auf Mittelwerten von Analysen über viele Nächte einer grossen Probandengruppe. Die Schlafaufnahme ist für wissenschaftliche und nicht für diagnostische Zwecke optimiert.
+
+
 ### Hypnogramm und Schlafphasen:
 
 Hypnogramme (oben): Diese Diagramme zeigen Ihre Schlafstadien über drei verschiedene Nächte:
@@ -271,13 +291,9 @@ string += """
 - **S1 (Einschlafphase):** Dies ist die leichteste Schlafphase, die als Übergang zwischen Wachsein und Schlafen dient. In dieser Phase können leichte Bewegungen und schnelle Wechsel zurück ins Wachsein vorkommen.
 - **S2 (Leichtschlaf):** Dies ist eine Phase des leichten Schlafs, die den Großteil des Schlafs ausmacht. In dieser Phase verlangsamt sich die Herzfrequenz und die Körpertemperatur sinkt. Es ist schwieriger, aus dieser Phase aufzuwachen als aus S1.
 - **S3 (Tiefschlaf):** Diese Phase ist auch als Tiefschlaf oder Slow-Wave Sleep (SWS) bekannt. Sie ist für die körperliche Erholung und das Immunsystem besonders wichtig. Aufwachen aus dieser Phase kann zu Desorientierung führen.
-- **REM (Rapid Eye Movement) Schlaf:** Diese Phase ist durch schnelle Augenbewegungen gekennzeichnet und wird oft mit intensivem Träumen in Verbindung gebracht. Der REM-Schlaf spielt eine wichtige Rolle bei der Verarbeitung von Informationen und dem Gedächtnis.
+- **REM (Rapid Eye Movement) Schlaf:** Diese Phase ist durch schnelle Augenbewegungen gekennzeichnet und wird oft mit intensivem Träumen in Verbindung gebracht. 
 
 
-
-**Wichtige Hinweise**
-
-Bitte beachten Sie, dass diese Analyse keine medizinische Untersuchung ersetzt. Die dargestellten Daten können Fehler enthalten und die Richtwerte sind nur als grobe Orientierung zu verstehen. Es ist völlig normal, dass einzelne Nächte von diesen Durchschnittswerten abweichen. Die Durchschnittswerten basieren auf Mittelwerten von Analysen über viele Nächte einer grossen Probandengruppe.
 
 Nochmals vielen Dank für Ihre Teilnahme und Ihr Vertrauen!
 
@@ -339,7 +355,9 @@ tr:nth-child(odd) {{
 </html>
 """
 # Convert HTML to PDF
-assert pdfkit.from_string(html_text, file_pdf), 'converting failed'
+config = pdfkit.configuration(wkhtmltopdf='C:/Users/simon.kern/Nextcloud/Projects/sleep-utils/sleep_utils/examples/bin/wkhtmltopdf.exe')
+
+assert pdfkit.from_string(html_text, file_pdf, configuration=config, options={"enable-local-file-access": ""}), 'converting failed'
 
 print(f'PDF saved to {file_pdf}')
 
