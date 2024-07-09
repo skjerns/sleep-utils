@@ -355,7 +355,7 @@ tr:nth-child(odd) {{
 </html>
 """
 # Convert HTML to PDF
-config = pdfkit.configuration(wkhtmltopdf='C:/Users/simon.kern/Nextcloud/Projects/sleep-utils/sleep_utils/examples/bin/wkhtmltopdf.exe')
+config = pdfkit.configuration(wkhtmltopdf='./bin/wkhtmltopdf.exe')
 
 assert pdfkit.from_string(html_text, file_pdf, configuration=config, options={"enable-local-file-access": ""}), 'converting failed'
 
