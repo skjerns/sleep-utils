@@ -78,7 +78,8 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
     if raw.info['sfreq']>128:
         print('downsampling to 128 hz')
         raw.resample(128, n_jobs=-2)  
-        
+    assert len(ch_groups)<=24, f'EEG * EOG must be at maximum 24 combinations, but is {len(ch_groups)=}'
+ 
     mne.export.export_raw(tmp_edf, raw, fmt='edf', overwrite=True)
     return predict_usleep(tmp_edf, api_token, eeg_chs=None, eog_chs=None,
                           ch_groups=ch_groups, model=model, saveto=saveto,  
