@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import sleep_utils
 import numpy as np
 import pandas as pd
+import platform
 from sleep_utils.plotting import plot_hypnogram
 from sleep_utils.external import appdirs
 from sleep_utils.plotting import choose_file, plot_hypnogram
@@ -27,6 +28,15 @@ from sleep_utils.tools import infer_hypno_file, read_hypno, infer_psg_file
 config_dir = appdirs.user_config_dir('sleep-utils')
 config_file = os.path.join(config_dir, 'last_used.json')
 os.makedirs(config_dir, exist_ok=True)
+
+def open_pdf(file_path):
+    if platform.system() == 'Darwin':  # macOS
+        subprocess.call(('open', file_path))
+    elif platform.system() == 'Windows':  # Windows
+        os.startfile(file_path)
+    else:  # Linux variants
+        subprocess.call(('open', file_path))
+
 
 def split_string_at_spaces(desc, max_length=20):
     words = desc.split()
@@ -117,8 +127,6 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
 
     last_evening_marker = annot_blocks_last[0] if len(annot_blocks_last)>0 else {}
     first_morning_marker = annot_blocks_first[-1] if len(annot_blocks_first)>0 else {}
-    
-        
 
     lights_off_epoch = int(last_evening_marker.get('onset', 0)//30)
     lights_on_epoch = int(first_morning_marker.get('onset', -30 + len(raw)/raw.info['sfreq'])//30)
@@ -129,7 +137,7 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
         
     if lights_on_epoch < len(hypno)- np.argmax(hypno[::-1]>0): 
         # sometimes no annotations match, then the values are off
-        lights_on_epoch = len(hypno)- np.argmax(hypno[::-1]>0)
+        lights_on_epoch = (len(hypno)- np.argmax(hypno[::-1]>0))-1
 
 
     for i, annot in enumerate(annot_blocks_last + annot_blocks_first[-1:]):
@@ -274,7 +282,7 @@ Tortendiagramme (unten): Diese Diagramme stellen die prozentuale Verteilung der 
 """
 
 for i, hypno_png in enumerate(hypno_pngs):
-    string += f'<img src="./{os.path.basename(hypno_png)}" alt="hypno_{i}" height="220px"/><br><br>'
+    string += f'<img src="./{os.path.basename(hypno_png)}" alt="hypno_{i}" height="200px"/><br><br>'
     # string += f'![hypnogram_{i}](./{os.path.basename(hypno_png)})\n\n'
 
 
@@ -360,6 +368,6 @@ assert pdfkit.from_string(html_text, file_pdf, options={"enable-local-file-acces
 
 print(f'PDF saved to {file_pdf}')
 
-subprocess.call(['open', file_pdf])
+open_pdf(file_pdf)
 
 input('Press enter to exit...')
