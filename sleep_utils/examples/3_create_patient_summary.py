@@ -11,6 +11,7 @@ Create an A4 summary for patients including
 @author: simon.kern
 """
 import os
+import sys
 import json
 import subprocess
 import mne
@@ -19,11 +20,14 @@ import sleep_utils
 import numpy as np
 import pandas as pd
 import platform
+import shutil
 from sleep_utils.plotting import plot_hypnogram
 from sleep_utils.external import appdirs
 from sleep_utils.plotting import choose_file, plot_hypnogram
 from sleep_utils.tools import infer_hypno_file, read_hypno, infer_psg_file
 # plt.rcParams['text.usetex'] = True
+
+sys.path.append('./bin/')
 
 config_dir = appdirs.user_config_dir('sleep-utils')
 config_file = os.path.join(config_dir, 'last_used.json')
@@ -254,64 +258,38 @@ full_names = {
 }
 df_summaries.index = [full_names[name] for name in df_summaries.index]
 df_summaries.index.set_names('Kennwert', inplace=True)
+try:
+    import xlsxwriter
+    df_summaries.to_excel(f'{report_dir}/sleep_summary.xlsx')
+except ModuleNotFoundError:
+    df_summaries.to_csv(f'{report_dir}/sleep_summary.csv')
+    print('Could not write excel, the xlsxwriter module is not installed. Saving as CSV instead.')
+
 #%% create MarkDown file
-
-string = f"# Ihre Schlafdaten im Überblick\n"
-string += """Im Folgenden finden Sie eine Übersicht über Ihre Schlafdaten. Die Analyse umfasst verschiedene Parameter, die wir näher erklären.
-
-**Wichtige Hinweise**
-
-Bitte beachten Sie, dass diese Analyse keine medizinische Untersuchung ist. Die dargestellten Daten können Fehler enthalten und die Richtwerte sind nur als grobe Orientierung zu verstehen. Es ist völlig normal, dass einzelne Nächte von diesen Durchschnittswerten abweichen. Die Durchschnittswerten basieren auf Mittelwerten von Analysen über viele Nächte einer grossen Probandengruppe. Die Schlafaufnahme ist für wissenschaftliche und nicht für diagnostische Zwecke optimiert.
+with open('report_template.md', 'r', encoding='utf8') as f:
+    template = f.read()
 
 
-### Hypnogramm und Schlafphasen:
-
-Hypnogramme (oben): Diese Diagramme zeigen Ihre Schlafstadien über drei verschiedene Nächte:
-- **Gewöhnungsnacht:** Diese Nacht diente dazu, sich an die Schlafumgebung zu gewöhnen.
-- **Nacht 1:** Diese Nacht wurde vor der Rauchentwöhnung aufgezeichnet.
-- **Nacht 2:** Diese Nacht wurde nach der Rauchentwöhnung aufgezeichnet.
-
-Tortendiagramme (unten): Diese Diagramme stellen die prozentuale Verteilung der verschiedenen Schlafphasen dar:
-
-- **W:** Wachzustand
-- **REM:** REM-Schlaf (Rapid Eye Movement)
-- **S1:** Schlafstadium 1 (Einschlafphase)
-- **S2:** Schlafstadium 2 (leichter Schlaf)
-- **SWS:** Tiefschlaf (Slow-Wave Sleep, auch S3 genannt)
-
-"""
-
+hypno_string = ''
 for i, hypno_png in enumerate(hypno_pngs):
-    string += f'<img src="./{os.path.basename(hypno_png)}" alt="hypno_{i}" height="200px"/><br><br>'
+    hypno_string += f'<img src="./{os.path.basename(hypno_png)}" alt="hypno_{i}" height="200px"/><br><br>'
     # string += f'![hypnogram_{i}](./{os.path.basename(hypno_png)})\n\n'
 
 
+dist_string = ''
 for i, dist_png in enumerate(dist_pngs):
-    string += f'<img src="./{os.path.basename(dist_png)}" alt="dist_{i}" width="{1/(len(dist_pngs)+1)*100}%"/>'
+    dist_string += f'<img src="./{os.path.basename(dist_png)}" alt="dist_{i}" width="{1/(len(dist_pngs)+1)*100}%"/>'
 
-string += '<div style="page-break-after: always;"></div><br>'
+table_string = df_summaries.to_markdown(stralign='right')
 
-string += f"\n\n\n\n## Tabellarische Werte\n{df_summaries.to_markdown(stralign='right')}\n"
-string += """
-
-**Erklärungen zu den Schlafphasen**
-
-- **S1 (Einschlafphase):** Dies ist die leichteste Schlafphase, die als Übergang zwischen Wachsein und Schlafen dient. In dieser Phase können leichte Bewegungen und schnelle Wechsel zurück ins Wachsein vorkommen.
-- **S2 (Leichtschlaf):** Dies ist eine Phase des leichten Schlafs, die den Großteil des Schlafs ausmacht. In dieser Phase verlangsamt sich die Herzfrequenz und die Körpertemperatur sinkt. Es ist schwieriger, aus dieser Phase aufzuwachen als aus S1.
-- **S3 (Tiefschlaf):** Diese Phase ist auch als Tiefschlaf oder Slow-Wave Sleep (SWS) bekannt. Sie ist für die körperliche Erholung und das Immunsystem besonders wichtig. Aufwachen aus dieser Phase kann zu Desorientierung führen.
-- **REM (Rapid Eye Movement) Schlaf:** Diese Phase ist durch schnelle Augenbewegungen gekennzeichnet und wird oft mit intensivem Träumen in Verbindung gebracht. 
-
-
-
-Nochmals vielen Dank für Ihre Teilnahme und Ihr Vertrauen!
-
-Ihr Studienteam"""
-
+template = template.replace('%%%%HYPNOGRAMS%%%%', hypno_string)
+template = template.replace('%%%%DISTRIBUTIONS%%%%', dist_string)
+template = template.replace('%%%%TABLE%%%%', table_string)
 
 file_md = f'{report_dir}/report_{participant_id}.md'
 
-with open(file_md, 'w') as f:
-    f.write(string)
+with open(file_md, 'w', encoding='utf8') as f:
+    f.write(template)
 
 print(f'Markdown saved to {file_md}')
 
@@ -323,7 +301,7 @@ import pdfkit
 
 file_pdf = os.path.splitext(file_md)[0] + '.pdf'
 # Convert Markdown to HTML
-html_text = markdown2.markdown(string.replace('./', report_dir),  extras=['tables', 'fenced-code-blocks', 'cuddled-lists'])
+html_text = markdown2.markdown(template.replace('./', report_dir),  extras=['tables', 'fenced-code-blocks', 'cuddled-lists'])
 # Add inline CSS for better table formatting
 html_text = f"""
     <html>
@@ -362,9 +340,13 @@ tr:nth-child(odd) {{
 </body>
 </html>
 """
-# config = pdfkit.configuration(wkhtmltopdf='./bin/wkhtmltopdf.exe')
 
-assert pdfkit.from_string(html_text, file_pdf, options={"enable-local-file-access": ""}), 'converting failed'
+assert (wkhtmlbin := shutil.which('wkhtmltopdf')), 'wkhtmltopdf binary not found, please get ZIP file from https://wkhtmltopdf.org/downloads.html and put binary in same directory as script'
+config = pdfkit.configuration(wkhtmltopdf=wkhtmlbin)
+
+assert pdfkit.from_string(html_text, file_pdf, 
+                          configuration=config,
+                          options={"enable-local-file-access": ""}), 'converting failed'
 
 print(f'PDF saved to {file_pdf}')
 
