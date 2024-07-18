@@ -116,12 +116,13 @@ else:
 
 # remove channels that were not selected
 print('loading raw data')
-raw_orig = raw.copy()
-raw.drop_channels([ch for ch in raw.ch_names if not ch in eeg_chs+eog_chs+ref_chs])
 if raw.info['sfreq']>128:
     print('downsampling to 128 hz')
     raw.resample(128, n_jobs=-1, verbose='INFO')
-raw.filter(0.1, 45, n_jobs=-1, verbose='INFO')
+
+raw.filter(0.1, 55, n_jobs=-1, verbose='INFO')
+
+raw_orig = raw.copy()
 
 plot_dir = f'{os.path.dirname(file)}/plots/'
 basename = os.path.basename(os.path.splitext(file)[0])
@@ -137,6 +138,7 @@ elif api_token.strip()=='':
     print('No token inserted, skip prediction.')
     hypno = None
 else:
+    raw.drop_channels([ch for ch in raw.ch_names if not ch in eeg_chs+eog_chs+ref_chs])
     hypno = predict_usleep_raw(raw, api_token, eeg_chs=eeg_chs, eog_chs=eog_chs,
                                model=model, saveto=hypno_file)
 
@@ -161,14 +163,25 @@ fig, ax = plt.subplots(1, 1, figsize=[14, 8])
 data = raw_orig.get_data(picks='eeg')
 sfreq = raw_orig.info['sfreq']
 
-data = data[:, :int(len(raw)//(30*sfreq)*epoch_len*sfreq)]
+data = data[:, :int(len(raw_orig)//(30*sfreq)*epoch_len*sfreq)]
 data = data.reshape([len(data), -1, int(epoch_len*sfreq)])
 stds = np.std(data, axis=-1) # get std per epoch as noise marker
 
-# this is rather stupid, but worth a try
+# this is rather stupid, but worth a try, 5 times median std
 vmax = np.median(np.median(stds, 1))*5
+# flatline detection at 100th of the medians
+vmin_threshold = vmax/100/5
+vmin = (vmax-vmin_threshold)/256 + vmin_threshold
 
-ax.imshow(stds, cmap='RdYlGn_r', aspect='auto', interpolation='None', vmax=vmax)
+from matplotlib import cm
+from matplotlib.colors import ListedColormap
+cmap = cm.get_cmap('RdYlGn_r', 256)
+newcolors = cmap(np.linspace(0, 1, 256))
+blue = np.array([0, 155/256, 1, 1])
+newcolors[:1, :] = blue
+newcmp = ListedColormap(newcolors)
+
+ax.imshow(stds, cmap=newcmp, aspect='auto', interpolation='None', vmin=vmin, vmax=vmax)
 ax.set_yticks(np.arange(len(data)), raw_orig.ch_names, fontsize=6)
 # ax.set_xticks(np.arange(len(data)), raw_orig.ch_names, fontsize=6)
 formatter = FuncFormatter(lambda x, pos: '{:.0f}'.format(x * epoch_len))
