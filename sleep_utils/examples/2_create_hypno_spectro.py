@@ -177,7 +177,7 @@ from matplotlib import cm
 from matplotlib.colors import ListedColormap
 cmap = cm.get_cmap('RdYlGn_r', 256)
 newcolors = cmap(np.linspace(0, 1, 256))
-blue = np.array([0, 155/256, 1, 1])
+blue = np.array([0.7, 0.7, 0.9, 1])
 newcolors[:1, :] = blue
 newcmp = ListedColormap(newcolors)
 
