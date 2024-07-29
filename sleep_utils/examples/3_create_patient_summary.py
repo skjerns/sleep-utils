@@ -110,7 +110,7 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
     basename = os.path.basename(os.path.splitext(raw.filenames[0])[0])
     try:
         n = int(basename[6])
-    except ValueError:
+    except Exception:
         pass
     night = night_names[n]  # night id at position 6 of filename
 
