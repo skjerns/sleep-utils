@@ -27,6 +27,10 @@ from sleep_utils.plotting import choose_file, plot_hypnogram
 from sleep_utils.tools import infer_hypno_file, read_hypno, infer_psg_file
 # plt.rcParams['text.usetex'] = True
 
+try:
+    os.environ['PATH'] += os.pathsep + os.path.dirname(__file__)
+except:
+    pass
 sys.path.append('./bin/')
 
 config_dir = appdirs.user_config_dir('sleep-utils')
@@ -105,9 +109,13 @@ night_names = ['Gewöhnungsnacht', 'Nacht 1', 'Nacht 2', 'Nacht 3']
 hypno_pngs = []
 dist_pngs = []
 summaries = []
+filenames = []
 
 for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
     basename = os.path.basename(os.path.splitext(raw.filenames[0])[0])
+    
+    filenames.append(basename)
+    
     try:
         n = int(basename[6])
     except Exception:
@@ -258,11 +266,15 @@ full_names = {
 }
 df_summaries.index = [full_names[name] for name in df_summaries.index]
 df_summaries.index.set_names('Kennwert', inplace=True)
+
+df_summaries_export = df_summaries.drop('Richtwert', axis=1)
+df_summaries_export.columns = filenames
+
 try:
     import xlsxwriter
-    df_summaries.to_excel(f'{report_dir}/sleep_summary.xlsx')
+    df_summaries_export.to_excel(f'{report_dir}/sleep_summary.xlsx')
 except ModuleNotFoundError:
-    df_summaries.to_csv(f'{report_dir}/sleep_summary.csv')
+    df_summaries_export.to_csv(f'{report_dir}/sleep_summary.csv')
     print('Could not write excel, the xlsxwriter module is not installed. Saving as CSV instead.')
 
 #%% create MarkDown file
