@@ -230,7 +230,7 @@ summaries += [pd.Series({
     'sleep_cycles': '3-5',  # Number of sleep cycles
     'stage_shifts': '10-70',  # Number of shifts of sleep stages
     'SQI': '0.7-1.0',  # Sleep quality index (ratio)
-    'SE': '>80%'  # Sleep efficiency percentage
+    'SE': '>0.8'  # Sleep efficiency percentage
     }, name='Richtwert')]
 
 df_summaries = pd.concat(summaries, axis=1)
