@@ -113,9 +113,9 @@ filenames = []
 
 for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
     basename = os.path.basename(os.path.splitext(raw.filenames[0])[0])
-    
+
     filenames.append(basename)
-    
+
     try:
         n = int(basename[6])
     except Exception:
@@ -146,8 +146,8 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
     if lights_off_epoch > np.argmax(hypno>0):
         # sometimes no annotations match, then the values are off
         lights_off_epoch = np.argmax(hypno>0)
-        
-    if lights_on_epoch < len(hypno)- np.argmax(hypno[::-1]>0): 
+
+    if lights_on_epoch < len(hypno)- np.argmax(hypno[::-1]>0):
         # sometimes no annotations match, then the values are off
         lights_on_epoch = (len(hypno)- np.argmax(hypno[::-1]>0))-1
 
@@ -224,13 +224,13 @@ summaries += [pd.Series({
     'lights_off': 'N/A',  # Sleep onset after recording start in minutes
     'lights_on': 'N/A',  # Sleep offset after recording start
     'recording_length': 'N/A',  # Recording length in minutes (7 to 10 hours)
-    'awakenings': '0-15',  # Number of awakenings
+    'awakenings': '<15',  # Number of awakenings
     'mean_dur_awakenings': '1-6',  # Mean duration of awakenings in minutes
     'FI': 'N/A',  # Fragmentation index
     'sleep_cycles': '3-5',  # Number of sleep cycles
     'stage_shifts': '10-70',  # Number of shifts of sleep stages
     'SQI': '0.7-1.0',  # Sleep quality index (ratio)
-    'SE': '85-95%'  # Sleep efficiency percentage
+    'SE': '>80%'  # Sleep efficiency percentage
     }, name='Richtwert')]
 
 df_summaries = pd.concat(summaries, axis=1)
@@ -356,7 +356,7 @@ tr:nth-child(odd) {{
 assert (wkhtmlbin := shutil.which('wkhtmltopdf')), 'wkhtmltopdf binary not found, please get ZIP file from https://wkhtmltopdf.org/downloads.html and put binary in same directory as script'
 config = pdfkit.configuration(wkhtmltopdf=wkhtmlbin)
 
-assert pdfkit.from_string(html_text, file_pdf, 
+assert pdfkit.from_string(html_text, file_pdf,
                           configuration=config,
                           options={"enable-local-file-access": ""}), 'converting failed'
 

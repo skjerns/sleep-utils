@@ -38,6 +38,9 @@ def config_load():
         config = json.load(f)
     return config
 
+def sanitize(string):
+    return ''.join([x if (x.isalnum() or x in '?.- ') else '-' for x in string])
+
 config_dir = appdirs.user_config_dir('sleep-utils')
 config_file = os.path.join(config_dir, 'last_used.json')
 os.makedirs(config_dir, exist_ok=True)
@@ -46,6 +49,7 @@ config = config_load()
 prev_dir = config.get('prev_dir', None)
 
 
+# choose file
 vhdr_files = choose_file(default_dir=prev_dir, exts=['vhdr'], multiple=True,
                          title='Choose files that should be combined')
 
@@ -53,21 +57,26 @@ config['prev_dir'] = os.path.dirname(vhdr_files[0])
 config_save(config)
 
 basename = common_prefix(vhdr_files)
+if basename.endswith(('-', '_')):
+    basename = basename[:-1]
 print(f'Assuming the base name for this recording is {os.path.basename(basename)}')
 
 all_raws = []
 max_sfreq = 0
 
+# load both files
 raws = [mne.io.read_raw(file) for file in vhdr_files]
 raws = sorted(raws, key=lambda x: x.info['meas_date'])
 sfreq = raws[0].info['sfreq']
 chs = raws[0].info['ch_names']
+
 # check they are compatible
 assert len(set([raw.info['sfreq'] for raw in raws]))==1, 'different sample frequencies!'
 assert len(set([len(raw.info['ch_names']) for raw in raws]))==1, 'different number of channels!'
 assert all([raw.info['ch_names']==raws[0].info['ch_names'] for raw in raws])==1, 'different names of channels!'
 assert all([dt.total_seconds()<60*60*14 for dt in np.diff([raw.info['meas_date'] for raw in raws])]), f'Warning! Gap longer than 12 hours, sure these are the same recording? {[os.path.basename(file) for file in vhdr_files]}'
 
+# calculate gap
 gaps = []
 samples = [len(raw) for raw in raws]
 
@@ -78,7 +87,7 @@ for i, raw in enumerate(raws[:-1]):
     gaps += [int(gap)]
 gaps += [0]  # last recording has no gap obviously
 
-
+# put data into one data file
 data = np.zeros([len(chs), sum(gaps+samples)])
 annotations = []
 
@@ -89,7 +98,7 @@ for raw, gap in tqdm(zip(raws, gaps, strict=True), total=len(raws), desc='loadin
     for annot in raw.annotations:
         onset = annot['onset'] + offset/sfreq
         duration = annot['duration']
-        description = annot['description']
+        description = sanitize(annot['description'])
         annotations.append([onset, duration, description])
 
     offset += gap+len(raw)
