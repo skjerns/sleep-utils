@@ -83,12 +83,12 @@ samples = [len(raw) for raw in raws]
 for i, raw in enumerate(raws[:-1]):
     raw_next = raws[i+1]
     gap = ((raw_next.info['meas_date']-raw.info['meas_date']).total_seconds())*sfreq-len(raw)
-    print(f'gap {i} has length {gap//sfreq} seconds')
+    print(f'gap {i+1} has length {gap//sfreq} seconds')
     gaps += [int(gap)]
 gaps += [0]  # last recording has no gap obviously
 
 # put data into one data file
-data = np.zeros([len(chs), sum(gaps+samples)])
+data = np.zeros([len(chs), sum(gaps+samples)], dtype=np.float32)
 annotations = []
 
 offset = 0
@@ -106,7 +106,6 @@ for raw, gap in tqdm(zip(raws, gaps), total=len(raws), desc='loading data to con
 annotations = mne.Annotations(onset=[x[0] for x in annotations],
                               duration=[x[1] for x in annotations],
                               description=[x[2] for x in annotations])
-
 # Create a new Raw object with the merged data
 merged_raw = mne.io.RawArray(data, raws[0].info.copy())
 merged_raw.set_annotations(annotations)
@@ -114,6 +113,8 @@ merged_raw.set_annotations(annotations)
 # Write the merged data to new BrainVision files
 print('writing new file')
 vhdr_out = f'{basename}-combined-{len(raws)}files.vhdr'
+del raws
+
 mne.export.export_raw(vhdr_out, merged_raw, fmt='brainvision')
 
 # next move the 'old' files to a new directory
