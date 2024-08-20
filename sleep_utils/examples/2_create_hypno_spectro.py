@@ -68,12 +68,12 @@ config['api_token_time'] = time.time()
 config_save(config)
 
 print('Please select EDF file in GUI for loading..')
-file = choose_file(default_dir = prev_dir, exts=['eeg', 'edf', 'fif', 'bdf', 'txt'], title='Choose file to analyze')
+file = choose_file(default_dir = prev_dir, exts=['dat', 'eeg', 'edf', 'fif', 'bdf', 'txt'], title='Choose file to analyze')
 
 config['prev_dir'] = os.path.dirname(file)
 config_save(config)
 
-if file.endswith('.eeg'):  # brainvision file is actually the header
+if file.endswith(('.eeg', '.dat')):  # brainvision file is actually the header
     file = file[:-4] + '.vhdr'
 
 if file.endswith('.txt'):  # brainvision file is actually the header
@@ -120,7 +120,7 @@ if raw.info['sfreq']>128:
     print('downsampling to 128 hz')
     raw.resample(128, n_jobs=-1, verbose='INFO')
 
-raw.filter(0.1, 55, n_jobs=-1, verbose='INFO')
+raw.filter(0.1, 55, picks=raw.ch_names, n_jobs=-1, verbose='INFO')
 
 raw_orig = raw.copy()
 

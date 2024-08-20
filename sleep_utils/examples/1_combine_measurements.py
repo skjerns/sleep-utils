@@ -92,7 +92,7 @@ data = np.zeros([len(chs), sum(gaps+samples)])
 annotations = []
 
 offset = 0
-for raw, gap in tqdm(zip(raws, gaps, strict=True), total=len(raws), desc='loading data to concatenate'):
+for raw, gap in tqdm(zip(raws, gaps), total=len(raws), desc='loading data to concatenate'):
     data[:, offset:offset+len(raw)] = raw.get_data()
 
     for annot in raw.annotations:
