@@ -107,13 +107,18 @@ annotations = mne.Annotations(onset=[x[0] for x in annotations],
                               duration=[x[1] for x in annotations],
                               description=[x[2] for x in annotations])
 # Create a new Raw object with the merged data
+data = data.astype(np.float32)
 merged_raw = mne.io.RawArray(data, raws[0].info.copy())
 merged_raw.set_annotations(annotations)
 
 # Write the merged data to new BrainVision files
 print('writing new file')
 vhdr_out = f'{basename}-combined-{len(raws)}files.vhdr'
+
+# memory cleanup
 del raws
+del raw
+del data
 
 mne.export.export_raw(vhdr_out, merged_raw, fmt='brainvision')
 
