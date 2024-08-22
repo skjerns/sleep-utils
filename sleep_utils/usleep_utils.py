@@ -27,7 +27,7 @@ def tempfile_wrapper(func):
 
 @tempfile_wrapper
 def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
-                   ch_groups=None, model='U-Sleep v2.0', saveto=None,  
+                   ch_groups=None, model='U-Sleep v2.0', saveto=None,
                    seconds_per_label=30, tmp_edf=None):
     """convenience function to upload any mne.io.Raw to usleep
     will prepare the file by downsampling to 128 Hz and discarding
@@ -43,14 +43,14 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
         list of channels that are of type EOG and should be used for prediction
         channel, e.g. [lEOG, rEOG]. ch_groups will be created based on that.
     ch_groups : list
-        list of channel tuple, where each tuple contains one EEG and one EOG 
+        list of channel tuple, where each tuple contains one EEG and one EOG
         channel, e.g. [[Fz, lEOG], [Cz, lEOG], [Fz, rEOG], [Cz, lEOG]].
     api_token : str
         U-Sleep API token, apply for it at https://sleep.ai.ku.dk.
     model : str
         U-Sleep model to use, e.g. U-Sleep v1.0 or v2.0
     saveto : str, optional
-        save hypnogram to this file, with one entry per second of 
+        save hypnogram to this file, with one entry per second of
         the hypnogram. The default is None.
     seconds_per_label : int
         number of seconds that each hypnogram label should span. default: 30
@@ -64,9 +64,9 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
         'must either supply eeg_chs and eog_chs OR ch_groups'
     if eeg_chs is not None and eog_chs is not None and ch_groups is None:
         ch_groups = list(itertools.product(eeg_chs, eog_chs))
-        
+
     raw = raw.copy()  # work on copy as we resample data etc.
-    # convert to EDF file if not 
+    # convert to EDF file if not
     print('converting file to EDF')
     chs = set([ch[0] for ch in ch_groups]) | set([ch[1] for ch in ch_groups])
     # chs_idx = [i for i, ch in enumerate(raw.ch_names) if ch in chs]
@@ -77,19 +77,19 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
     # is resampled anyway internally, reduce data size
     if raw.info['sfreq']>128:
         print('downsampling to 128 hz')
-        raw.resample(128, n_jobs=-2)  
+        raw.resample(128, n_jobs=-2)
     assert len(ch_groups)<=24, f'EEG * EOG must be at maximum 24 combinations, but is {len(ch_groups)=}'
- 
+
     mne.export.export_raw(tmp_edf, raw, fmt='edf', overwrite=True)
     return predict_usleep(tmp_edf, api_token, eeg_chs=None, eog_chs=None,
-                          ch_groups=ch_groups, model=model, saveto=saveto,  
+                          ch_groups=ch_groups, model=model, saveto=saveto,
                           seconds_per_label=seconds_per_label)
 
 def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
-                   ch_groups=None, model='U-Sleep v2.0', saveto=None,  
+                   ch_groups=None, model='U-Sleep v2.0', saveto=None,
                    seconds_per_label=30):
     """helper function to retrieve a hypnogram prediction from usleep
-    a valid API token is necessary to run the function.    
+    a valid API token is necessary to run the function.
 
     Parameters
     ----------
@@ -102,14 +102,14 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
         list of channels that are of type EOG and should be used for prediction
         channel, e.g. [lEOG, rEOG]. ch_groups will be created based on that.
     ch_groups : list
-        list of channel tuple, where each tuple contains one EEG and one EOG 
+        list of channel tuple, where each tuple contains one EEG and one EOG
         channel, e.g. [[Fz, lEOG], [Cz, lEOG], [Fz, rEOG], [Cz, lEOG]].
     api_token : str
         U-Sleep API token, apply for it at https://sleep.ai.ku.dk.
     model : str
         U-Sleep model to use, e.g. U-Sleep v1.0 or v2.0
     saveto : str, optional
-        save hypnogram to this file, with one entry per second of 
+        save hypnogram to this file, with one entry per second of
         the hypnogram. The default is None.
     seconds_per_label : int
         number of seconds that each hypnogram label should span. default: 30
@@ -127,7 +127,7 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
     assert isinstance(seconds_per_label, int), f'must be integer but is {seconds_per_label}'
     assert (eeg_chs is None == eog_chs is None) ^ (ch_groups is None), \
         'must either supply eeg_chs and eog_chs OR ch_groups'
-        
+
     # Create an API object and (optionally) a new session.
     try:
         api = USleepAPI(api_token=api_token)
@@ -135,42 +135,42 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
     except ConnectionRefusedError as e:
         raise ConnectionRefusedError(f'{e.args}. Maybe your API token expired? Go to https://sleep.ai.ku.dk to get a new one')
     assert os.path.isfile(edf_file), f'{edf_file} not found'
-    assert (session:=api.new_session(session_name=os.path.basename(edf_file))), f'could init session: {session}, {session.content}'
 
-    if eeg_chs is not None and eog_chs is not None and ch_groups is None:
-        ch_groups = list(itertools.product(eeg_chs, eog_chs))
-    
-    # See a list of valid models and set which model to use
-    session.set_model(model)
+    with api.new_session_context(session_name=os.path.basename(edf_file)) as session:
 
-    # Upload a local file (usually .edf format)
-    print(f'uploading {edf_file}')
-    assert (res:=session.upload_file(edf_file)), f'upload failed: {res}, {res.content}'
-        
-    # Start the prediction on two channel groups:
-    #   1: EEG Fpz-Cz + EOG horizontal
-    #   2: EEG Pz-Oz + EOG horizontal
-    # Using 30 second windows (note: U-Slep v1.0 uses 128 Hz re-sampled signals)
+        if eeg_chs is not None and eog_chs is not None and ch_groups is None:
+            ch_groups = list(itertools.product(eeg_chs, eog_chs))
 
-    session.predict(data_per_prediction=128*seconds_per_label, 
-                    channel_groups=ch_groups)
+        # See a list of valid models and set which model to use
+        session.set_model(model)
 
-    # Wait for the job to finish or stream to the log output
-    # session.stream_prediction_log()
-    print('waiting for prediction')
-    success = session.wait_for_completion()
+        # Upload a local file (usually .edf format)
+        print(f'uploading {edf_file}')
+        assert (res:=session.upload_file(edf_file)), f'upload failed: {res}, {res.content}'
 
-    if success:
-        # Fetch hypnogram
-        hypno = session.get_hypnogram()['hypnogram']
-        if saveto:
-            write_hypno(hypno, saveto, mode='csv',
-                        seconds_per_annotation=1, overwrite=True)
-        # Download hypnogram file
-        # session.download_hypnogram(out_path="./hypnogram", file_type="tsv")
-    else:
-        raise Exception(f"Prediction failed.\n\n{hypno}")
+        # Start the prediction on two channel groups:
+        #   1: EEG Fpz-Cz + EOG horizontal
+        #   2: EEG Pz-Oz + EOG horizontal
+        # Using 30 second windows (note: U-Slep v1.0 uses 128 Hz re-sampled signals)
 
-    # Delete session (i.e., uploaded file, prediction and logs)
-    session.delete_session()
+        session.predict(data_per_prediction=128*seconds_per_label,
+                        channel_groups=ch_groups)
+
+        # Wait for the job to finish or stream to the log output
+        # session.stream_prediction_log()
+        print('waiting for prediction')
+        success = session.wait_for_completion()
+
+        if success:
+            # Fetch hypnogram
+            hypno = session.get_hypnogram()['hypnogram']
+            if saveto:
+                write_hypno(hypno, saveto, mode='csv',
+                            seconds_per_annotation=1, overwrite=True)
+            # Download hypnogram file
+            # session.download_hypnogram(out_path="./hypnogram", file_type="tsv")
+        else:
+            raise Exception(f"Prediction failed.\n\n{hypno}")
+
+        # Delete session (i.e., uploaded file, prediction and logs)
     return hypno
