@@ -147,10 +147,14 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
         # sometimes no annotations match, then the values are off
         lights_off_epoch = np.argmax(hypno>0)
 
+    # if last non-wake epoch is after lights on, take that as lights off
     if lights_on_epoch < len(hypno)- np.argmax(hypno[::-1]>0):
         # sometimes no annotations match, then the values are off
         lights_on_epoch = (len(hypno)- np.argmax(hypno[::-1]>0))-1
 
+    # in case last epoch is truncated, avoid out-of-bounds
+    if lights_on_epoch>=len(hypno):
+        lights_on_epoch = len(hypno) -1
 
     for i, annot in enumerate(annot_blocks_last + annot_blocks_first[-1:]):
         onset = annot['onset']
