@@ -203,6 +203,7 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
         except (TypeError, ValueError):
             warnings.warn(f'TypeError: {name} has type {type(name)}, unexpected.')
 
+    assert sum([])
 
     if print_summary:
         pprint(summary)

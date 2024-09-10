@@ -167,8 +167,7 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
         ax.text(onset, 0.5, desc, color='darkred', horizontalalignment='left' if i==0 else 'right',
                 verticalalignment='top', rotation=90, alpha=0.75)
 
-    ax = ax2
-    ax.clear()
+
     starttime = raw.info["meas_date"].replace(microsecond=0, tzinfo=None) # remove timezone and millisecond info
     summary = sleep_utils.hypno_summary(hypno, lights_on_epoch=lights_on_epoch, lights_off_epoch=lights_off_epoch)
     summaries += [pd.Series(summary, name=night)]
@@ -181,9 +180,11 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
     else:
         stageslabels = [f'{l}'for l, m, p in labelszip]
 
-    autoptc = lambda x: f'{x:.1f} %\n{int(x*summary["TBT"]//100)} min'
-    ax.pie(percent, labels=labels, explode=[0.025]*5, autopct=autoptc, textprops=dict(fontsize=16),
-           labeldistance=1.1, pctdistance=0.7)
+    ax = ax2
+    ax.clear()
+    autoptc = lambda x: f'{x*sum(percent)/100:.1f} %\n{int(np.round(x*summary["TST"]*sum(percent)/100/100))} min'
+    ax.pie(percent, labels=labels, explode=[0.025]*5, autopct=autoptc,
+           textprops=dict(fontsize=16), labeldistance=1.1, pctdistance=0.7)
     ax.set_title(f"Verteilung '{night}'", fontsize=14, fontweight='bold')
 
     hypno_png = f'{report_dir}/hypno_{basename}.png'
