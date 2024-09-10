@@ -254,7 +254,8 @@ def plot_confusion_matrix(confmat, target_names=None, ax=None, title='',
     r_names = []
     if target_names is None:
         target_names = [str(i) for i in np.arange(len(confmat))]
-    for i, label in enumerate(target_names):
+        
+    for i, label in enumerate(target_names[:max(confmat.shape)]):
         c_names.append(label + '\n(' + str(int(np.sum(confmat[:, i]))) + ')')
         align = max(1, len(str(int(np.sum(confmat[i, :])))) + 3 - len(label))
         r_names.append('{:{align}}'.format(label, align=align) +

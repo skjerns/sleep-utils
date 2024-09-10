@@ -146,10 +146,13 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     perc_S3 = np.round(min_S3/TST * 100, 1)
     perc_REM = np.round(min_REM/TST * 100, 1)
 
-    lat_S1 = (np.argmax(hypno==1)-lights_off_epoch)*epochlen/60
-    lat_S2 = (np.argmax(hypno==2)-lights_off_epoch)*epochlen/60
-    lat_S3 = (np.argmax(hypno==3)-lights_off_epoch)*epochlen/60
-    lat_REM = (np.argmax(hypno==4)-lights_off_epoch)*epochlen/60
+    for stage, name in enumerate(['lat_S1', 'lat_S2', 'lat_S3', 'lat_REM'], 1):
+        if num in hypno:
+            locals()[name] = (np.argmax(hypno==stage)-lights_off_epoch)*epochlen/60
+        else:
+            # overwrite values with nan if the stage is not found at all
+           warnings.warn(f'Stage for {name} not found, latency is NaN')
+           locals()[name] = np.nan
 
     lights_off = lights_off_epoch*epochlen/60
     lights_on = lights_on_epoch*epochlen/60
@@ -188,14 +191,18 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     ignore = ['verbose', 'epochlen', 'stage', 'sleep_stages', 'num', 'hypno',
               'offset', 'onset', 'group', 'i',  'group_list', 'in_rem',
               'print_summary', 'lights_on_epoch', 'lights_off_epoch',
-              'sleep_onset', 'sleep_offset']
+              'sleep_onset', 'sleep_offset', 'name']
     for var in ignore:
         if not var in summary:
             continue
         del summary[var]
 
     for name, value in summary.items():
-        assert value>=0, f'{name} has {value=}, should be positive or 0'
+        try:
+            assert value>=0 or np.isnan(value), f'{name} has {value=}, should be positive or 0'
+        except (TypeError, ValueError):
+            warnings.warn(f'TypeError: {name} has type {type(name)}, unexpected.')
+
 
     if print_summary:
         pprint(summary)
