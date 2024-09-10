@@ -104,7 +104,8 @@ os.makedirs(report_dir, exist_ok=True)
 fig1, ax1 = plt.subplots(1, 1, figsize=[9, 3], dpi=200)
 fig2, ax2 = plt.subplots(1, 1, figsize=[5, 5], dpi=200)
 
-night_names = ['Gewöhnungsnacht', 'Nacht 1', 'Nacht 2', 'Nacht 3']
+night_names = ['Nacht 0', 'Nacht 1', 'Nacht 2', 'Nacht 3']
+labeldict = {0: 'W', 4: 'REM', 1: 'S1', 2: 'S2', 3: 'SWS', }
 
 hypno_pngs = []
 dist_pngs = []
@@ -121,11 +122,10 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
     except Exception:
         pass
     night = night_names[n]  # night id at position 6 of filename
-
     ax = ax1
     ax.clear()
     starttime = raw.info["meas_date"].replace(microsecond=0, tzinfo=None) # remove timezone and millisecond info
-    plot_hypnogram(hypno, ax=ax, starttime=starttime,
+    plot_hypnogram(hypno, ax=ax, starttime=starttime, labeldict = labeldict,
                    title=f"Schlafprofil für '{night}', Start um {starttime}")
 
     # filter annotations that they are not overlapping in the plot

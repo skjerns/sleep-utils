@@ -128,12 +128,12 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     sleep_onset = np.where(hypno!=0)[0][0] # first non-W epoch
     sleep_offset = np.where(hypno!=0)[0][-1] # last non-W epoch
 
-    TST = (sum(hypno!=0)*epochlen)/60
-    TBT = (lights_on_epoch-lights_off_epoch)*epochlen/60
-    TRT = len(hypno)*epochlen//60
-    SE = np.round(TST/TBT, 2)
+    TST = (sum(hypno!=0)*epochlen)/60  # total time in sleep stages in minutes
+    TBT = (lights_on_epoch-lights_off_epoch)*epochlen/60  # total time in bed
+    TRT = len(hypno)*epochlen//60  # total recording time
+    SE = np.round(TST/TBT, 2)  # sleep efficiency
 
-    WASO = (sleep_offset-sleep_onset)*epochlen/60-TST
+    WASO = (sleep_offset-sleep_onset+1)*epochlen/60-TST
     min_S1 = sum(hypno==1)*epochlen/60
     min_S2 = sum(hypno==2)*epochlen/60
     min_S3 = sum(hypno==3)*epochlen/60
@@ -141,10 +141,10 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     sum_NREM = min_S1 + min_S2 + min_S3
 
     perc_W = np.round(WASO/TBT * 100, 1)
-    perc_S1 = np.round(min_S1/TST * 100, 1)
-    perc_S2 = np.round(min_S2/TST * 100, 1)
-    perc_S3 = np.round(min_S3/TST * 100, 1)
-    perc_REM = np.round(min_REM/TST * 100, 1)
+    perc_S1 = np.round(min_S1/TBT * 100, 1)
+    perc_S2 = np.round(min_S2/TBT * 100, 1)
+    perc_S3 = np.round(min_S3/TBT * 100, 1)
+    perc_REM = np.round(min_REM/TBT * 100, 1)
 
     for stage, name in enumerate(['lat_S1', 'lat_S2', 'lat_S3', 'lat_REM'], 1):
         if num in hypno:
@@ -176,6 +176,9 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     FI = np.round((awakenings + stage_shifts) / TST, 2)
     SQI = np.round(SE * (1 - FI), 2)
 
+    if SQI<0:
+        SQI = np.nan
+
     # Number of Sleep Cycles
     # Define a sleep cycle as a transition from any NREM stage to REM
     sleep_cycles = 0
@@ -197,13 +200,12 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
             continue
         del summary[var]
 
+
     for name, value in summary.items():
         try:
             assert value>=0 or np.isnan(value), f'{name} has {value=}, should be positive or 0'
         except (TypeError, ValueError):
             warnings.warn(f'TypeError: {name} has type {type(name)}, unexpected.')
-
-    assert sum([])
 
     if print_summary:
         pprint(summary)
