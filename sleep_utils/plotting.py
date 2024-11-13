@@ -30,6 +30,7 @@ import tkinter as tk
 from tkinter import Listbox, Scrollbar, Label, Tk
 from tkinter.filedialog import askopenfilename, asksaveasfilename, askopenfiles
 from sleep_utils import usleep_utils
+from natsort import natsorted
 
 
 
@@ -74,7 +75,7 @@ def choose_file(default_dir=None, default_file=None, exts='txt',
     if not name:
         print("ERROS: No file chosen")
     else:
-        return name
+        return natsorted(name)
 
 def plotmulti(*args):
     """
@@ -254,7 +255,7 @@ def plot_confusion_matrix(confmat, target_names=None, ax=None, title='',
     r_names = []
     if target_names is None:
         target_names = [str(i) for i in np.arange(len(confmat))]
-        
+
     for i, label in enumerate(target_names[:max(confmat.shape)]):
         c_names.append(label + '\n(' + str(int(np.sum(confmat[:, i]))) + ')')
         align = max(1, len(str(int(np.sum(confmat[i, :])))) + 3 - len(label))
