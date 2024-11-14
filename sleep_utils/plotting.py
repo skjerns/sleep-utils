@@ -58,6 +58,9 @@ def choose_file(default_dir=None, default_file=None, exts='txt',
                               title = title,
                               filetypes =(*[("File", "*.{}".format(ext)) for ext in exts],
                                            ("All Files","*.*")))
+       if multiple:
+           assert not isinstance(name, str)
+           name = natsorted(name)
     elif mode=='save':
         assert not multiple, 'multiple must be false for saving'
         name = asksaveasfilename(initialdir=default_dir,
@@ -75,7 +78,7 @@ def choose_file(default_dir=None, default_file=None, exts='txt',
     if not name:
         print("ERROS: No file chosen")
     else:
-        return natsorted(name)
+        return name
 
 def plotmulti(*args):
     """
