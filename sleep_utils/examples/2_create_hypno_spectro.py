@@ -16,6 +16,7 @@ import os
 import mne
 import json
 import numpy as np
+import scipy
 import edfio  # check if edfio is installed, necessary for usleep predict
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
@@ -173,12 +174,16 @@ vmax = np.median(np.median(stds, 1))*5
 vmin_threshold = vmax/100/5
 vmin = (vmax-vmin_threshold)/256 + vmin_threshold
 
+notnormal = scipy.stats.normaltest(data, axis=-1)[0] > 4000
+
+stds[notnormal] = vmin
+
 from matplotlib import cm
 from matplotlib.colors import ListedColormap
 cmap = cm.get_cmap('RdYlGn_r', 256)
 newcolors = cmap(np.linspace(0, 1, 256))
-blue = np.array([0.7, 0.7, 0.9, 1])
-newcolors[:1, :] = blue
+gray = np.array([0.7, 0.7, 0.7, 1])
+newcolors[:1, :] = gray
 newcmp = ListedColormap(newcolors)
 
 ax.imshow(stds, cmap=newcmp, aspect='auto', interpolation='None', vmin=vmin, vmax=vmax)
