@@ -18,10 +18,33 @@ import numpy as np
 from io import StringIO
 from pprint import pprint
 from datetime import datetime, timezone, timedelta
-
+from joblib import Memory
 
 conv_dict = {'W':0, 'WAKE':0, 'N1': 1, 'N2': 2, 'N3': 3, 'R':4, 'REM': 4, 'ART': 9,
              -1:9, '-1':9, **{i:i for i in range(0, 10)}, **{f'{i}':i for i in range(0, 10)}}
+
+
+if (cachedir:=os.environ.get("JOBLIB_CACHEDIR")) is None:
+    warnings.warn(
+        "Environment variable JOBLIB_CACHEDIR is not defined. "
+        "To enable caching, please set the env variable before importing "
+        "sleep_utils via `import os; os.environ['JOBLIB_CACHEDIR']=xx`",
+        stacklevel=2
+    )
+
+memory = Memory(cachedir)
+
+
+def get_common_channels(files):
+    """from a selection of MNE readable files, get the set of common channels"""
+    from tqdm import tqdm
+    chs = []
+    for file in tqdm(files, desc='Scanning available channels'):
+        raw = mne.io.read_raw(file, preload=False, verbose='ERROR')
+        chs += [raw.ch_names]
+    chs = [set(x) for x in chs]
+    chs_common = set.intersection(*chs)
+    return chs_common
 
 
 def sleep(seconds):
@@ -37,6 +60,26 @@ def log(msg, *args, **kwargs):
     """
     msg = '[{}] '.format(time.strftime('%H:%M:%S')) + msg
     print(msg, flush=True, *args, **kwargs)
+
+
+def filter_channels(ch_names):
+    """a heuristic function to filter channels that are not important
+
+    will filter all light, battery, movement, temperature, breathing, audio,
+    related channels
+    """
+    ch_names_filtered = []
+    for ch in ch_names:
+        if any(word in ch.lower() for word in ['light', 'acc', 'bat', 'temp', 'audio',
+                                       'off', 'on', 'ssi', 'time', 'mic', 'adc',
+                                       'act']):
+            continue
+
+        if len(ch) == 1:  # filter X, Y, Z
+            continue
+
+        ch_names_filtered += [ch]
+    return ch_names_filtered
 
 
 def analyze_function(fun):
@@ -82,10 +125,11 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
         min S3:  total time spent in S3 in minutes
         min REM: total time spent in REM in minutes
         total_NREM:     total NREM sleep time - sum of minutes in S1, S2, S3
-        % WASO:  percentage Wake after sleep onset relative to TRT
-        % S1:    relative time spent in S1 to TST
-        % S2:    relative time spent in S2 to TST
-        % S3:    relative time spent in S3 to TST
+        % WASO:  percentage Wake after sleep onset relative to time
+                 between first and last sleep stage (TBT)
+        % S1:    relative time spent in S1 to all sleep stages (TST)
+        % S2:    relative time spent in S2 to all sleep stages (TST)
+        % S3:    relative time spent in S3 to all sleep stages (TST)
         % REM:   relative time spent in REM to TST
         lat S1:  latency of first S1 epoch after sleep onset in minutes
         lat S2:  latency of first S2 epoch after sleep onset in minutes
@@ -130,7 +174,7 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
 
     TST = (sum(hypno!=0)*epochlen)/60  # total time in sleep stages in minutes
     TBT = (lights_on_epoch-lights_off_epoch)*epochlen/60  # total time in bed
-    TRT = len(hypno)*epochlen//60  # total recording time
+    TRT = len(hypno)*epochlen/60  # total recording time
     SE = np.round(TST/TBT, 2)  # sleep efficiency
 
     WASO = (sleep_offset-sleep_onset+1)*epochlen/60-TST
@@ -140,14 +184,14 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     min_REM = sum(hypno==4)*epochlen/60
     sum_NREM = min_S1 + min_S2 + min_S3
 
-    perc_W = np.round(WASO/TBT * 100, 1)
-    perc_S1 = np.round(min_S1/TBT * 100, 1)
-    perc_S2 = np.round(min_S2/TBT * 100, 1)
-    perc_S3 = np.round(min_S3/TBT * 100, 1)
-    perc_REM = np.round(min_REM/TBT * 100, 1)
+    perc_W = np.round(WASO/TST * 100, 1)
+    perc_S1 = np.round(min_S1/TST * 100, 1)
+    perc_S2 = np.round(min_S2/TST * 100, 1)
+    perc_S3 = np.round(min_S3/TST * 100, 1)
+    perc_REM = np.round(min_REM/TST * 100, 1)
 
     for stage, name in enumerate(['lat_S1', 'lat_S2', 'lat_S3', 'lat_REM'], 1):
-        if num in hypno:
+        if stage in hypno:
             locals()[name] = (np.argmax(hypno==stage)-lights_off_epoch)*epochlen/60
         else:
             # overwrite values with nan if the stage is not found at all
@@ -422,7 +466,7 @@ def write_hypno_csv(hypno, filename, seconds_per_annotation = 30, mode = 'second
         if np.any(np.logical_or(hypno>5, hypno<0)):
             raise ValueError('Contains values outside of [0, 5], which stage should that be?? ')
         with open(filename, 'w') as f:
-            hypno_rep = [str(v) for v in np.repeat(hypno, seconds_per_annotation)]
+            hypno_rep = [str(v) for v in np.repeat(hypno, 1)]
             if mode=='epochs':
                 hypno_rep = hypno_rep[::30]
             hypno_str = '\n'.join(hypno_rep)
@@ -469,6 +513,66 @@ def write_hypno(hypno, filename, mode='time', seconds_per_annotation = 30, comme
         raise ValueError('Unkown mode {}, must be time or csv'.format(mode))
 
 
+def hypno2wonambi(hypno, artefacts, dataset, winlen=10):
+    """
+    create annotations file
+
+    :param hypno: hypnogram in 30 seconds base
+    :param artefact: array with artefact markings
+    :param dataset: a wonambi.Dataset type
+    """
+    import yasa
+    from wonambi.attr import Annotations, create_empty_annotations
+
+    # conv_dict = {0: 'Wake',
+    #              1: 'NREM1',
+    #              2: 'NREM2',
+    #              3: 'NREM3',
+    #              4: 'REM'}
+    hypno_art = yasa.hypno_upsample_to_data(hypno, sf_hypno=1/30,
+                                            data=artefacts, sf_data=1/10)
+    with tempfile.NamedTemporaryFile(delete=True) as tmp_xls:
+        create_empty_annotations(tmp_xls.name, dataset)
+        annot = Annotations(tmp_xls.name)
+        annot.add_rater('U-Sleep')
+
+        while len((stages:=annot.rater.find('stages'))) != 0:
+            for stage in stages:
+                stages.remove(stage)
+
+        annot.create_epochs(winlen)
+
+        assert len(hypno_art)==len(artefacts)
+
+        for i, (stage, art) in enumerate(zip(hypno_art, artefacts)):
+            # name = conv_dict[int(stage)]
+            name = str(stage)
+            if art:
+                annot.set_stage_for_epoch(i*winlen, 'Poor',
+                                                     attr='quality',
+                                                     save=False)
+            else:
+                annot.set_stage_for_epoch(i*winlen, name, save=False)
+
+        annot.save()
+    return annot
+
+def get_var_from_comments(file, var, comments='#', typecast=int):
+    """from a numpy txt file, extract variables that have been saved in
+    the style
+    '# var=X'
+    """
+    with open(file, 'r') as f:
+        lines = f.read().split('\n')
+        lines = [line.strip() for line in lines]
+        lines = [line for line in lines if line.startswith('#')]
+        lines = [line for line in lines if f'{var}=' in line]
+    if len(lines)==0:
+        raise ValueError(f'variable "{var}" not found')
+    elif len(lines)>1:
+        raise ValueError(f'more than one variable "{var}" found')
+
+    return typecast(lines[0].split('=')[1])
 
 
 def transform_hypno(hypno, t_dict):
@@ -497,6 +601,236 @@ def convert_hypnogram(hypno_file_in, hypno_file_out, **kwargs):
     assert not os.path.exists(hypno_file_out)
     hypno = read_hypno(hypno_file_in, **kwargs)
     return write_hypno(hypno, hypno_file_out)
+
+
+def make_random_hypnogram(
+    n_epochs: int,
+    average_cycle_length_minutes: float = 90.0,
+    cycle_variation_fraction: float = 0.15,
+    # This sets the “nominal” # of cycles we might try to fit in:
+    # 8 hours / 90 minutes ~ 5 cycles, ±1
+    base_n_cycles: int = None,
+    n_awakenings: int = 5,
+    seed: int = None
+) -> np.ndarray:
+    """
+    Create a more realistic hypnogram with extra randomness:
+      1) Vary # of cycles instead of a strict partitioning by total epochs.
+      2) Randomize cycle lengths significantly around an average (±15% by default).
+      3) Randomly reorder or skip some transitions (e.g. skip SWS in a late cycle).
+      4) Randomly skip from SWS to REM without returning to N2, etc.
+      5) Insert random awakenings plus random micro-arousals.
+
+    Stages:
+      0: Wake (W)
+      1: N1
+      2: N2
+      3: SWS
+      4: REM
+
+    Each epoch is assumed to be 30 seconds.
+
+    Parameters
+    ----------
+    n_epochs : int
+        Total length of the hypnogram in 30-second epochs (e.g., 960 ≈ 8 hours).
+    average_cycle_length_minutes : float
+        Approximate duration of one full sleep cycle in minutes (~90 min typical).
+    cycle_variation_fraction : float
+        Fraction of average_cycle_length_minutes to use as ± random variation
+        in each cycle’s length. (Default 0.15 → ±15%)
+    base_n_cycles : int, optional
+        Approximate # of full cycles to use. If None, automatically guesses
+        from total epochs + average cycle length. (e.g., ~5 for 8 hours).
+    n_awakenings : int
+        Number of short awakenings (stage=0) to insert randomly.
+    seed : int, optional
+        Seed for reproducibility.
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape (n_epochs,) containing integer-coded sleep stages.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Helper function to clamp values
+    def clamp(val, low, high):
+        return max(low, min(high, val))
+
+    # 1) Decide how many cycles we’re going to create in total
+    #    If base_n_cycles is not specified, guess from the total time / cycle length
+    if base_n_cycles is None:
+        # total_time_minutes ~ n_epochs * 0.5
+        total_time_minutes = n_epochs * 0.5
+        guess = total_time_minutes / average_cycle_length_minutes  # e.g. ~8h / 90m = ~5.3
+        # Round and add a random ±1
+        base_n_cycles = int(round(guess + np.random.uniform(-1, 1)))
+        base_n_cycles = clamp(base_n_cycles, 3, 8)  # typical range 3–8 cycles
+
+    # 2) For each cycle, randomly determine cycle length (in epochs)
+    #    Then build stages. Keep track until we fill up or exceed n_epochs.
+    cycles_lengths = []
+    for _ in range(base_n_cycles):
+        # normal distribution around average_cycle_length_minutes
+        stdev = average_cycle_length_minutes * cycle_variation_fraction
+        c_minutes = np.random.normal(loc=average_cycle_length_minutes, scale=stdev)
+        c_minutes = clamp(c_minutes, 60, 120)  # clamp from 1h–2h
+        c_epochs = int(round(c_minutes * 2))   # convert minutes to 30s epochs
+        cycles_lengths.append(c_epochs)
+
+    # We’ll build the final stages in this list
+    all_stages = []
+    used_epochs = 0
+
+    # Helper function to produce a single cycle’s stages
+    def make_cycle(cycle_idx: int, cycle_length: int, total_cycles: int) -> list:
+        """
+        Build a single cycle with random durations for N1, N2, SWS, REM, possibly skipping transitions,
+        or going SWS->REM directly. Returns a list of stages (integers).
+        """
+        stages_cycle = []
+
+        # We define a typical flow: [N1, N2, SWS?, N2, REM, maybe N2 again],
+        # but with random skipping or reordering.
+
+        # N1 typically short: 5–10 min
+        n1_epochs = np.random.randint(10, 21)  # 10–20 epochs → 5–10 min
+        # SWS more in early cycles, less in later cycles
+        # Sometimes we skip SWS in later cycles with small probability
+        if cycle_idx < 2 or np.random.rand() > 0.2:  # 80% chance to have SWS
+            if cycle_idx == 0:
+                sws_epochs = np.random.randint(40, 61)  # 20–30 min
+            elif cycle_idx == 1:
+                sws_epochs = np.random.randint(30, 51)  # 15–25 min
+            else:
+                sws_epochs = np.random.randint(10, 31)  # 5–15 min
+        else:
+            sws_epochs = 0  # skip SWS
+
+        # REM is short the first cycle, can get longer in later cycles
+        if cycle_idx == 0:
+            rem_epochs = np.random.randint(10, 16)   # ~5–8 min
+        elif cycle_idx >= total_cycles - 1:
+            rem_epochs = np.random.randint(35, 51)  # ~17–25 min on last cycle
+        else:
+            rem_epochs = np.random.randint(20, 31)  # ~10–15 min
+
+        # If skipping SWS or from SWS→REM directly
+        # 10-20% chance to jump from SWS directly to REM (skip N2 in between)
+        skip_n2_between_sws_rem = False
+        if sws_epochs > 0 and np.random.rand() < 0.2:
+            skip_n2_between_sws_rem = True
+
+        # Summation of the “fixed blocks”
+        used_fixed = n1_epochs + sws_epochs + rem_epochs
+        # cycle_length - used_fixed = leftover for N2 blocks around SWS/REM
+        leftover_for_n2 = cycle_length - used_fixed
+
+        # Minimum leftover for N2 if leftover is negative or very small
+        leftover_for_n2 = max(leftover_for_n2, 10)
+
+        # We’ll split leftover_for_n2 among up to 3 blocks of N2:
+        # [N2 before SWS, (N2 between SWS/REM), N2 after REM]
+        # but might skip the middle one if skip_n2_between_sws_rem is True
+        r3 = np.random.rand(3)
+        r3 /= r3.sum()  # random fractions summing to 1
+        n2a = int(r3[0] * leftover_for_n2)
+        n2b = int(r3[1] * leftover_for_n2) if not skip_n2_between_sws_rem else 0
+        n2c = leftover_for_n2 - n2a - n2b
+
+        # By now, we have something like:
+        # N1 -> N2a -> SWS -> N2b -> REM -> N2c
+        # but if SWS=0, we skip that block entirely
+
+        # Build the cycle
+        # 1) N1
+        stages_cycle.extend([1] * n1_epochs)
+
+        # 2) N2a
+        stages_cycle.extend([2] * n2a)
+
+        # 3) SWS
+        if sws_epochs > 0:
+            stages_cycle.extend([3] * sws_epochs)
+
+        # 4) N2b (skip if skip_n2_between_sws_rem is True)
+        if not skip_n2_between_sws_rem and sws_epochs > 0:
+            stages_cycle.extend([2] * n2b)
+
+        # 5) REM
+        stages_cycle.extend([4] * rem_epochs)
+
+        # 6) N2c
+        stages_cycle.extend([2] * n2c)
+
+        # Insert some random micro-arousals in the middle of this cycle
+        # We'll do a small chance ~10% for each quarter of the cycle to insert a 1-2 epoch wake or N1
+        parts = len(stages_cycle) // 4
+        for k in range(1, 4):
+            idx_start = k * parts
+            if idx_start < len(stages_cycle) - 1 and np.random.rand() < 0.10:
+                # flip 1–2 epochs to 0 or 1
+                for offset in [0, 1]:
+                    if idx_start+offset < len(stages_cycle) and np.random.rand() < 0.5:
+                        stages_cycle[idx_start + offset] = np.random.choice([0, 1])
+
+        return stages_cycle
+
+    # Build each cycle in turn
+    for i, c_len in enumerate(cycles_lengths):
+        if used_epochs >= n_epochs:
+            break
+        # If adding another cycle would exceed, cap this cycle length
+        if used_epochs + c_len > n_epochs:
+            c_len = n_epochs - used_epochs
+        # Create the cycle
+        stages_this_cycle = make_cycle(
+            cycle_idx=i,
+            cycle_length=c_len,
+            total_cycles=len(cycles_lengths)
+        )
+        all_stages.extend(stages_this_cycle)
+        used_epochs += len(stages_this_cycle)
+
+    # If we still have leftover epochs (rarely if cycle lengths sum < n_epochs),
+    # just fill them with a final partial cycle
+    if used_epochs < n_epochs:
+        leftover = n_epochs - used_epochs
+        # Treat it as last cycle
+        partial_cycle = make_cycle(
+            cycle_idx=len(cycles_lengths),
+            cycle_length=leftover,
+            total_cycles=len(cycles_lengths) + 1
+        )
+        all_stages.extend(partial_cycle[:leftover])
+        used_epochs += leftover
+
+    # 3) If somehow we exceeded (should not happen often), truncate
+    if len(all_stages) > n_epochs:
+        all_stages = all_stages[:n_epochs]
+
+    # 4) Convert to array
+    hypnogram = np.array(all_stages, dtype=int)
+
+    # 5) Insert random awakenings (0) anywhere
+    if n_awakenings > 0:
+        awakening_epochs = np.random.choice(
+            np.arange(1, n_epochs - 1),
+            size=min(n_awakenings, n_epochs - 2),
+            replace=False
+        )
+        for ep in awakening_epochs:
+            hypnogram[ep] = 0
+            # ~50% chance to extend the awakening
+            if ep + 1 < n_epochs and np.random.rand() < 0.5:
+                hypnogram[ep + 1] = 0
+
+    return hypnogram
+
+
+# No files created or modified during execution.
 
 
 def _time_format(seconds):
