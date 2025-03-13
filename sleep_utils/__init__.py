@@ -11,6 +11,8 @@ from . import plotting
 from . import tools
 from . import sigproc
 from . import external
+from . import gui
+from . import usleep_utils
 
 from .plotting import plot_hypnogram_overview
 from .plotting import specgram_multitaper, plot_hypnogram

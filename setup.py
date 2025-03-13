@@ -13,11 +13,11 @@ setup(name='sleep-utils',
       author_email='nomail@nomail.com',
       license='GNU 2.0',
       packages=['sleep_utils'],
-      install_requires=['mne', 'matplotlib', 'pandas', 'seaborn', 'scipy', 'lspopt', 'natsort'],
+      install_requires=['appdirs', 'tqdm', 'mne', 'matplotlib', 'joblib',
+                        'pandas', 'seaborn', 'scipy', 'lspopt', 'natsort'],
       zip_safe=False,
       classifiers=[
           "Programming Language :: Python :: 3",
           "License :: OSI Approved :: MIT License",
           "Operating System :: OS Independent",
       ],)
-
