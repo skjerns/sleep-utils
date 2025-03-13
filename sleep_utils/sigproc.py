@@ -61,9 +61,7 @@ def artefact_heuristic(raw, wlen=10):
         3. kurtosis is more than 20
     """
 
-    thresh1 = 50 # standarddeviation of first derivative, should reliably detect noise
-    thresh2 = 600 # 600 uV peak-to-peak, should be enough for k komplex
-    thresh3 = 20 # kurtosis is below 20
+def artefact_heuristic(raw, wlen=10, thresh1=50, thresh2=600, thresh3=20):
 
 
     data = raw.get_data().squeeze()*1e6
