@@ -14,6 +14,7 @@ Eg. plotting
 import os
 import matplotlib
 import time
+import scipy
 import mne
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,62 +24,15 @@ from PIL import Image
 import warnings
 import seaborn as sns
 import pandas as pd
+from matplotlib import cm
 from matplotlib.colors import ListedColormap
+from matplotlib.ticker import FuncFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import zscore
-import tkinter as tk
-from tkinter import Listbox, Scrollbar, Label, Tk
-from tkinter.filedialog import askopenfilename, asksaveasfilename, askopenfiles
-from sleep_utils import usleep_utils
-from natsort import natsorted
 
+# imports for backwards compatibility
+from sleep_utils.gui import choose_file, display_textbox, display_listbox
 
-
-def choose_file(default_dir=None, default_file=None, exts='txt',
-                title='Choose file', mode='open', multiple=False):
-    """
-    Open a file chooser dialoge with tkinter.
-
-    :param default_dir: Where to open the dir, if set to None, will start at wdir
-    :param exts: A string or list of strings with extensions etc: 'txt' or ['txt','csv']
-    :returns: the chosen file
-    """
-    root = Tk()
-    root.deiconify()
-    root.lift()
-    root.attributes('-topmost', True)
-    root.attributes('-topmost', False)
-    root.update()
-    if isinstance(exts, str): exts = [exts]
-    if mode=='open':
-       name = askopenfilename(initialdir=default_dir,
-                              default_file=default_file,
-                              parent=root,
-                              multiple=multiple,
-                              title = title,
-                              filetypes =(*[("File", "*.{}".format(ext)) for ext in exts],
-                                           ("All Files","*.*")))
-       if multiple:
-           assert not isinstance(name, str)
-           name = natsorted(name)
-    elif mode=='save':
-        assert not multiple, 'multiple must be false for saving'
-        name = asksaveasfilename(initialdir=default_dir,
-                              default_file=default_file,
-                              parent=root,
-                              title = title,
-                              filetypes =(*[("File", "*.{}".format(ext)) for ext in exts],
-                                         ("All Files","*.*")))
-        if not name.endswith(exts[0]):
-            name += f'.{exts[0]}'
-    else:
-        raise Exception(f'unknown mode: {mode}')
-    root.update()
-    root.destroy()
-    if not name:
-        print("ERROS: No file chosen")
-    else:
-        return name
 
 def plotmulti(*args):
     """
@@ -88,106 +42,6 @@ def plotmulti(*args):
     for i, sig in enumerate(args):
         plt.subplot(len(args), 1, i+1)
         plt.plot(sig, linewidth=0.5)
-
-def display_textbox(title='Enter text', label='Please enter text', text=''):
-    window = tk.Tk()
-    window.deiconify()
-    window.lift()
-    window.attributes('-topmost', True)
-    window.attributes('-topmost', False)
-    window.title()
-
-    # Label
-    label = tk.Label(window, text=label)
-    label.pack()
-
-    # Text input field with line wrapping
-    text_input = tk.Text(window, wrap=tk.WORD, height=5, width=50,)
-    text_input.configure(font=("Arial", 8))  # Reducing font size
-
-    text_input.pack(pady=5, padx=5)
-
-    if text:
-        text_input.insert(tk.END, text)
-
-    x = ['']
-    # OK button
-    def on_ok():
-        # Get the text from the input field
-        text = text_input.get("1.0", tk.END).strip()
-        x[0] = text
-        window.destroy()  # Close the window
-
-    ok_button = tk.Button(window, text="OK", command=on_ok)
-    ok_button.pack()
-
-    # Run the Tkinter event loop
-    window.mainloop()
-    return x[0]
-
-
-def display_listbox(lists, selected=[], labels=[], title='select items'):
-    # Create main tkinter window
-    root = Tk()
-    root.deiconify()
-    root.lift()
-    root.attributes('-topmost', True)
-    root.attributes('-topmost', False)
-    root.title(title)
-
-    assert len(selected)<=len(lists), 'more selected than lists'
-    assert len(labels)<=len(lists), 'more labels than lists'
-    assert isinstance(lists, (list, tuple)), 'lists must be list of lists'
-    for items in lists:
-        assert isinstance(items, (list, tuple)), 'items must be list of lists'
-
-    num_listboxes = len(lists)
-
-    # Create labels
-    lbls = []
-    listboxes = []
-
-    for i in range(num_listboxes):
-        items = lists[i]
-        preselected = selected[i] if i<len(selected) else []
-        text = labels[i] if i<len(labels) else ''
-
-        # create labels
-        label = Label(root, text=text)
-        label.grid(row=0, column=i)
-        lbls.append(label)
-
-        # Create listboxes
-        listbox = Listbox(root, selectmode=tk.MULTIPLE, exportselection=False)
-        listbox.grid(row=1, column=i)
-        listboxes.append(listbox)
-
-        for item in items:
-            listbox.insert(tk.END, str(item))
-            if item in preselected:
-                listbox.selection_set(items.index(item))  # Select the item
-
-        # Create scrollbar for each listbox
-        scrollbar = Scrollbar(root, orient=tk.VERTICAL, command=listbox.yview)
-        scrollbar.grid(row=1, column=i, sticky=tk.NS+tk.E)
-        listbox.config(yscrollcommand=scrollbar.set)
-
-    # Create OK button
-    ok_button = tk.Button(root, text="OK", command=root.quit)
-    ok_button.grid(row=2, columnspan=num_listboxes, pady=10)
-
-    # Run the tkinter event loop
-    root.mainloop()
-
-    # Gather selected items before closing
-    selected_items = []
-    for i in range(num_listboxes):
-        selected_item_list = listboxes[i].curselection()
-        selected_items.append([listboxes[i].get(idx) for idx in selected_item_list])
-
-    root.destroy()
-    return selected_items
-
 
 
 def color_background(cvalues, stepsize=None, cmap='RdYlGn_r'):
@@ -285,6 +139,48 @@ def plot_confusion_matrix(confmat, target_names=None, ax=None, title='',
     plt.pause(0.1)
     plt.tight_layout()
 
+
+def plot_noise_std(raw, picks=None, epoch_len=10, ax=None):
+    """plot the standard deviation of the channels"""
+
+    if ax is None:
+        _, ax = plt.subplots(1, 1, figsize=[14, 8])
+
+    ax.clear()
+
+    data = raw.get_data(picks=picks)
+    sfreq = raw.info['sfreq']
+
+    data = data[:, :int(len(raw)//(30*sfreq)*epoch_len*sfreq)]
+    data = data.reshape([len(data), -1, int(epoch_len*sfreq)])
+    stds = np.std(data, axis=-1) # get std per epoch as noise marker
+
+    # this is rather stupid, but worth a try, 5 times median std
+    vmax = np.median(np.median(stds, 1))*5
+    # flatline detection at 100th of the medians
+    vmin_threshold = vmax/100/5
+    vmin = (vmax-vmin_threshold)/256 + vmin_threshold
+
+    notnormal = scipy.stats.normaltest(data, axis=-1)[0] > 4000
+
+    stds[notnormal] = vmin
+
+    cmap = cm.get_cmap('RdYlGn_r', 256)
+    newcolors = cmap(np.linspace(0, 1, 256))
+    gray = np.array([0.7, 0.7, 0.7, 1])
+    newcolors[:1, :] = gray
+    newcmp = ListedColormap(newcolors)
+
+    ch_names = raw.ch_names if picks is None else picks
+    im = ax.imshow(stds, cmap=newcmp, aspect='auto', interpolation='None', vmin=vmin, vmax=vmax)
+    ax.set_yticks(np.arange(len(data)), ch_names, fontsize=6)
+    # ax.set_xticks(np.arange(len(data)), raw_orig.ch_names, fontsize=6)
+    formatter = FuncFormatter(lambda x, pos: '{:.0f}'.format(x * epoch_len))
+    ax.xaxis.set_major_formatter(formatter)
+    ax.set_xlabel('Seconds')
+    ax.set_ylabel('Channels')
+    ax.set_title(f'Standard deviation of all channels {os.path.basename(raw._filenames[0])} for {epoch_len} second segments')
+    return stds, im
 
 def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
                    starttime=None, verbose=True, xlabel=True, ylabel=True,
