@@ -21,10 +21,11 @@ def config_load():
     config_file = os.path.join(config_dir, 'last_used.json')
     os.makedirs(config_dir, exist_ok=True)
 
-    if not os.path.isfile(config_file):
-        return {}
-    with open(config_file, 'r') as f:
-        config = json.load(f)
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        config = {}
     return config
 
 def config_save(config):
