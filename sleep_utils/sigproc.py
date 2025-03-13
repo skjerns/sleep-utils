@@ -34,6 +34,8 @@ def get_individual_spindle_peak(raw, hypno_upsampled, lfreq=10, hfreq=16):
     spindle_peak = f[idx_peaks[0]] if len(idx_peaks)>0 else 10
     if spindle_peak<10.2:
         warnings.warn(f'Spindle peak is at {spindle_peak}, probably detection did not work')
+    elif spindle_peak > 14:
+        warnings.warn(f'Spindle peak is at {spindle_peak}, which is higher than expected. Check data quality.')
     return spindle_peak
 
 @memory.cache
