@@ -51,6 +51,7 @@ def load_raw(file, sfreq=None, picks=None, filters=[None, None]):
     raw.filter(*filters, picks=raw.ch_names, n_jobs=-1, verbose='ERROR')
     return raw
 
+
 def artefact_heuristic(raw, wlen=10, thresh1=50, thresh2=600, thresh3=20):
     """
     a heuristic function to detect if a segment is strongly contanimated with
