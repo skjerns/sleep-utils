@@ -34,6 +34,10 @@ if (cachedir:=os.environ.get("JOBLIB_CACHEDIR")) is None:
 
 memory = Memory(cachedir)
 
+class AttrDict(dict):
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
 
 def get_common_channels(files):
     """from a selection of MNE readable files, get the set of common channels"""
@@ -108,7 +112,7 @@ def analyze_function(fun):
         print('Changes shift')
 
 def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
-                  print_summary=False):
+                  print_summary=False, sanity_check=True):
     """ summarizes the sleep parameters according to the AASM recommendations
 
     It is assumed that the hypnogram is starting with the lights off marker and
@@ -116,9 +120,9 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     started and ended must be indicated.
 
         TST:     total sleep time - sum of minutes of sleep stages other than W
-        TBT:     total bed time - duration from sleep onset to offset
+        TBT:     total bed time - duration from lights off to lights on
         TRT:     total recording time - from recording beginning to end
-        SE:      sleep efficiency: TST/(TST+WASO)
+        SE:      sleep efficiency: TST/TBT
         WASO:    total time spent in Wake between sleep onset/offset in minutes
         min S1:  total time spent in S1 in minutes
         min S2:  total time spent in S2 in minutes
@@ -150,7 +154,10 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     :param lights_off_epoch: at which epoch lights were turned off
     :param lights_on_epoch: at which epoch lights were turned on
     :param print_summary: print output or not
+    :param sanity_check: perform a sanity check on the values that have been
+                         computed
     """
+    s = AttrDict()
     hypno = np.array(hypno)
 
     sleep_stages = {'W':0, 'S1':1, 'S2':2, 'SWS':3, 'REM':4}
@@ -184,7 +191,7 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     min_REM = sum(hypno==4)*epochlen/60
     sum_NREM = min_S1 + min_S2 + min_S3
 
-    perc_W = np.round(WASO/TST * 100, 1)
+    perc_W = np.round(WASO/TBT * 100, 1)
     perc_S1 = np.round(min_S1/TST * 100, 1)
     perc_S2 = np.round(min_S2/TST * 100, 1)
     perc_S3 = np.round(min_S3/TST * 100, 1)
@@ -235,26 +242,83 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
             in_rem = False
 
     summary = locals().copy()
-    ignore = ['verbose', 'epochlen', 'stage', 'sleep_stages', 'num', 'hypno',
-              'offset', 'onset', 'group', 'i',  'group_list', 'in_rem',
-              'print_summary', 'lights_on_epoch', 'lights_off_epoch',
-              'sleep_onset', 'sleep_offset', 'name']
-    for var in ignore:
-        if not var in summary:
-            continue
-        del summary[var]
+    include = ['TST', 'TBT', 'TRT', 'SE', 'WASO', 'min_S1', 'min_S2', 'min_S3',
+               'min_REM', 'sum_NREM', 'perc_W', 'perc_S1', 'perc_S2', 'perc_S3',
+               'perc_REM', 'lat_S1', 'lat_S2', 'lat_S3', 'lat_REM', 'lights_off',
+               'lights_on', 'recording_length', 'awakenings', 'stage_shifts',
+               'mean_dur_awakenings', 'FI', 'SQI', 'sleep_cycles']
+    summary = dict()
 
+    for name in include:
+        summary[name] = locals()[name]
 
     for name, value in summary.items():
         try:
             assert value>=0 or np.isnan(value), f'{name} has {value=}, should be positive or 0'
         except (TypeError, ValueError):
-            warnings.warn(f'TypeError: {name} has type {type(name)}, unexpected.')
+            warnings.warn(f'TypeError: {name} has type {type(value)}, unexpected.')
 
     if print_summary:
         pprint(summary)
-
+    if sanity_check:
+        hypno_check_summary(summary)
     return summary
+
+def hypno_check_summary(summary, mode='warn'):
+    """does a sanity check on hypnogram summary values"""
+
+    def warn(msg):
+        warnings.warn(msg)
+    def exc(msg):
+        raise ValueError(msg)
+
+    if mode=='warn':
+        action = warn
+    elif mode=='raise':
+        action = exc
+    else:
+        raise ValueError('mode must be "warn" or "raise"')
+
+    s = AttrDict(summary)
+
+    # Test NREM sum calculation
+    if not s.sum_NREM == s.min_S1 + s.min_S2 + s.min_S3:
+        action('Sum of S1+S2+S3 != NREM')
+
+    # Test TRT calculation (assuming epochlen=30)
+    if not s.TRT >=s.TBT:
+        action(f'recording TRT must be longer than TBT: {s.TRT}<{s.TBT}?')
+
+
+    total_percentage = s.perc_S1 + s.perc_S2 + s.perc_S3 + s.perc_REM
+    if not np.isclose(total_percentage, 100, atol=0.1):
+        action(f'{total_percentage}!=100 for sum of sleep stage percentages')
+
+    for key, val in s.items():
+        if val<0:
+            action(f'negative value for {key}, not possible')
+
+        # percentage cant be higher than 100%
+        if key.startswith('perc_'):
+            if s[key] > 100:
+                action(f'{key} has > 100%: {val}')
+
+        # latency cant be before lights off
+        if key.startswith('lat_'):
+            if s[key] < s.lights_off:
+                f'{key} is before lights_off: {val} < {s.lights_off=}'
+
+    if s.lights_off > s.lights_on:
+        action(f'{s.lights_on=} before {s.lights_off}')
+
+    if s.WASO*2<s.awakenings:
+        action('{s.WASO=} minutes, but {s.awakenings=}?')
+
+    if s.WASO<s.mean_dur_awakenings:
+        action('{s.WASO=} minutes, but {s.mean_dur_awakenings=} minutes?')
+
+    if s.TST > s.TBT or s.TST > s.TRT:
+        action('something not right with calculation of TST, TBT or TST, check')
 
 
 def infer_psg_file(hypno_file):
