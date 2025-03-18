@@ -20,6 +20,20 @@ class AttrDict(dict):
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
+def sanity_check_hypno(hypno):
+    s = hypno_summary(hypno)
+    for key, val in s.items():
+        assert val>=0, f'negative value for {key}, not possible'
+
+        # percentage cant be higher than 100%
+        if key.startswith('perc_'):
+            assert s[key] < 100, f'{key} has > 100%: {val}'
+
+        # latency cant be before lights off
+        if key.startswith('perc_'):
+            assert s[key] < 100, f'{key} has > 100%: {val}'
+
+
 class TestHypnoSummary(unittest.TestCase):
 
     @classmethod
@@ -28,6 +42,7 @@ class TestHypnoSummary(unittest.TestCase):
         cls.hypno1 = read_hypno('./data/test_adapt_hypno.txt')
         cls.hypno2 = read_hypno('./data/test_exe_hypno.txt')
         cls.hypno3 = read_hypno('./data/test_rest_hypno.txt')
+        cls.hypno_waso = read_hypno('./data/14201_hypno.txt')
         cls.basic_hypno = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 0, 0, 1, 1, 1, 2, 3, 4, 4, 0, 0]  # Simple sleep pattern
         cls.missing_stages_hypno = [0, 0, 1, 1, 2, 2, 0, 0]  # Missing S3 and REM
 
@@ -61,14 +76,16 @@ class TestHypnoSummary(unittest.TestCase):
         self.assertEqual(result['TRT'], 4.5)
 
 
-    def test_sample_hypno(self):
+    def test_sample_hypnos(self):
+        """make some sanity checks for the hypnograms"""
 
-        for hypno in [self.hypno1, self.hypno2, self.hypno3,
+        for hypno in [self.hypno1, self.hypno2, self.hypno3, self.hypno_waso,
                       self.basic_hypno, self.missing_stages_hypno]:
-            s = AttrDict(hypno_summary(hypno))
 
-            # Test NREM sum calculation
-            assert s.sum_NREM == s.min_S1 + s.min_S2 + s.min_S3
+            summary = hypno_summary(hypno)
+            sleep_utils.tools.hypno_check_summary(summary, mode='raise')
+
+            s = AttrDict(summary)
 
             # Test TRT calculation (assuming epochlen=30)
             assert s.TRT == len(hypno) * 30 / 60
@@ -131,6 +148,9 @@ class TestHypnoSummary(unittest.TestCase):
         # FI = (awakenings + stage_shifts) / TST
         expected_fi = (3 + 6) / s.TST  # 3 awakenings, 6 stage shifts, divided by TST
         np.testing.assert_almost_equal(s.FI, round(expected_fi, 2))
+
+    def test_file_waso(self):
+        s = sleep_utils.hypno_summary(self.hypno_waso)
 
 if __name__ == '__main__':
     unittest.main()
