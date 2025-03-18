@@ -135,10 +135,10 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
         % S2:    relative time spent in S2 to all sleep stages (TST)
         % S3:    relative time spent in S3 to all sleep stages (TST)
         % REM:   relative time spent in REM to TST
-        lat S1:  latency of first S1 epoch after sleep onset in minutes
-        lat S2:  latency of first S2 epoch after sleep onset in minutes
-        lat S3:  latency of first S3 epoch after sleep onset in minutes
-        lat REM: latency of first REM epoch after sleep onset in minutes
+        lat S1:  latency of first S1 epoch after lights off in minutes
+        lat S2:  latency of first S2 epoch after lights off in minutes
+        lat S3:  latency of first S3 epoch after lights off in minutes
+        lat REM: latency of first REM epoch after lights off in minutes
         awakenings:     number of awakenings
         dur_awakenings: average minutes of being awake
         FI:             fragmentation index - (Number of Awakenings + N
@@ -197,6 +197,7 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     perc_S3 = np.round(min_S3/TST * 100, 1)
     perc_REM = np.round(min_REM/TST * 100, 1)
 
+    # latency calculation
     for stage, name in enumerate(['lat_S1', 'lat_S2', 'lat_S3', 'lat_REM'], 1):
         if stage in hypno:
             locals()[name] = (np.argmax(hypno==stage)-lights_off_epoch)*epochlen/60
@@ -251,6 +252,9 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
 
     for name in include:
         summary[name] = locals()[name]
+
+    summary ['lights_off_minute'] = lights_off_epoch*(epochlen/60)
+    summary ['lights_on_minute'] = lights_on_epoch*(epochlen/60)
 
     for name, value in summary.items():
         try:
