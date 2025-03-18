@@ -130,7 +130,7 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
         min REM: total time spent in REM in minutes
         total_NREM:     total NREM sleep time - sum of minutes in S1, S2, S3
         % WASO:  percentage Wake after sleep onset relative to time
-                 between first and last sleep stage (TBT)
+                 between lights off and lights on (TBT)
         % S1:    relative time spent in S1 to all sleep stages (TST)
         % S2:    relative time spent in S2 to all sleep stages (TST)
         % S3:    relative time spent in S3 to all sleep stages (TST)
