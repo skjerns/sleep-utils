@@ -253,9 +253,6 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     for name in include:
         summary[name] = locals()[name]
 
-    summary ['lights_off_minute'] = lights_off_epoch*(epochlen/60)
-    summary ['lights_on_minute'] = lights_on_epoch*(epochlen/60)
-
     for name, value in summary.items():
         try:
             assert value>=0 or np.isnan(value), f'{name} has {value=}, should be positive or 0'

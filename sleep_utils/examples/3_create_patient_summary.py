@@ -249,7 +249,7 @@ full_names = {
     'min_S3': 'Minuten in Schlafphase S3',
     'min_REM': 'Minuten im REM-Schlaf',
     'sum_NREM': 'Minuten im Non-REM (S2+S3)',
-    'perc_W': 'Prozent der Wachzeit',
+    'perc_W': 'Prozent der Wachzeit im Bett',
     'perc_S1': 'Prozent der Schlafphase S1',
     'perc_S2': 'Prozent der Schlafphase S2',
     'perc_S3': 'Prozent der Schlafphase S3',
@@ -258,8 +258,8 @@ full_names = {
     'lat_S2': 'Latenz bis Schlafphase S2',
     'lat_S3': 'Latenz bis Schlafphase S3',
     'lat_REM': 'Latenz bis REM-Schlaf',
-    'lights_off': 'Wann in etwa das Licht ausgemacht wurde',
-    'lights_on': 'Wann in etwa das Licht angemacht wurde',
+    'lights_off': 'Licht aus nach Aufzeichnungsbeginn',
+    'lights_on': 'Licht an nach Aufzeichnungsbeginn',
     'recording_length': 'Aufzeichnungsdauer',
     'awakenings': 'Anzahl kurzes Aufwachen',
     'mean_dur_awakenings': 'Durchschnittliche Dauer des Aufwachens',
@@ -267,7 +267,7 @@ full_names = {
     'sleep_cycles': 'Anzahl der Schlafzyklen',
     'stage_shifts': 'Anzahl der Schlafphasenwechsel',
     'SQI': 'Schlafqualitätsindex',
-    'SE': 'Schlafeffizienz'
+    'SE': 'Schlafeffizienz',
 }
 df_summaries.index = [full_names[name] for name in df_summaries.index]
 df_summaries.index.set_names('Kennwert', inplace=True)
