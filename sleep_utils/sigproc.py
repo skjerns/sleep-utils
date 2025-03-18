@@ -51,7 +51,7 @@ def load_raw(file, sfreq=None, picks=None, filters=[None, None]):
     raw.filter(*filters, picks=raw.ch_names, n_jobs=-1, verbose='ERROR')
     return raw
 
-def artefact_heuristic(raw, wlen=10):
+def artefact_heuristic(raw, wlen=10, thresh1=50, thresh2=600, thresh3=20):
     """
     a heuristic function to detect if a segment is strongly contanimated with
     noise, will give a boolean array as a result.
@@ -62,10 +62,6 @@ def artefact_heuristic(raw, wlen=10):
         2. maximum peak to peak voltage is below 600uV
         3. kurtosis is more than 20
     """
-
-def artefact_heuristic(raw, wlen=10, thresh1=50, thresh2=600, thresh3=20):
-
-
     data = raw.get_data().squeeze()*1e6
     sfreq = int(raw.info['sfreq'])
     stepsize = int(sfreq * wlen)
