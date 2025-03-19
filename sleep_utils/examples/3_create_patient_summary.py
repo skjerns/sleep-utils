@@ -102,7 +102,10 @@ os.makedirs(report_dir, exist_ok=True)
 
 #%% plot hypnograms & stages pie chart
 fig1, ax1 = plt.subplots(1, 1, figsize=[9, 3], dpi=200)
-fig2, ax2 = plt.subplots(1, 1, figsize=[5, 5], dpi=200)
+fig2 = plt.figure(figsize=[5, 5], dpi=200)
+gs = fig2.add_gridspec(2, 1, height_ratios=[1, 5])
+ax_bar = fig2.add_subplot(gs[0])
+ax_pie = fig2.add_subplot(gs[1])
 
 night_names = ['Nacht 0', 'Nacht 1', 'Nacht 2', 'Nacht 3']
 labeldict = {0: 'W', 4: 'REM', 1: 'S1', 2: 'S2', 3: 'SWS', }
@@ -180,12 +183,52 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
     else:
         stageslabels = [f'{l}'for l, m, p in labelszip]
 
-    ax = ax2
-    ax.clear()
-    autoptc = lambda x: f'{x*sum(percent)/100:.1f} %\n{int(np.round(x*summary["TST"]*sum(percent)/100/100))} min'
-    ax.pie(percent, labels=labels, explode=[0.025]*5, autopct=autoptc,
-           textprops=dict(fontsize=16), labeldistance=1.1, pctdistance=0.7)
-    ax.set_title(f"Verteilung '{night}'", fontsize=14, fontweight='bold')
+    ax_bar.clear()
+    ax_pie.clear()
+
+    # Create wake/sleep horizontal bar with margins
+    wake_percent = summary['perc_W']
+    sleep_percent = 100 - wake_percent
+
+    # Add margins (20% on each side)
+    margin = 0.2
+    bar_width = 1 - 2*margin
+
+    # Calculate positions with margins
+    bar_start = margin
+    bar_end = 1 - margin
+
+    # Create the bar with margins - corrected barh() calls
+    ax_bar.barh(0, bar_width*wake_percent/100,
+                left=bar_start, color='white', edgecolor='black', height=0.5)
+    ax_bar.barh(0, bar_width*sleep_percent/100,
+            left=bar_start + bar_width*wake_percent/100,
+            edgecolor='black', color='black', height=0.5)
+
+    # Add labels to the bar
+    ax_bar.text(bar_start*0.95, 0, f"Wach\n{wake_percent:.1f}%",
+                ha='right', va='center', color='black', fontsize=11)
+    ax_bar.text(bar_start + bar_width*wake_percent/100 + (bar_width*sleep_percent/100)/2, 0,
+                f"Schlaf\n{sleep_percent:.1f}%", ha='center', va='center', color='white', fontsize=11)
+
+    # Remove axes and ticks
+    ax_bar.set_xlim(0, 1)
+    ax_bar.set_ylim(-0.5, 0.5)
+    ax_bar.axis('off')
+
+    # Create pie chart without "Wach"
+    labels = ['S1', 'S2', 'SWS', 'REM']
+    values = [summary['min_S1'], summary['min_S2'], summary['min_S3'], summary['min_REM']]
+    percent = [summary['perc_S1'], summary['perc_S2'], summary['perc_S3'], summary['perc_REM']]
+
+    # Recalculate percentages to total 100% for the sleep stages only
+    sleep_total = sum(percent)
+    percent = [p * 100 / sleep_total for p in percent]
+
+    autoptc = lambda x: f'{x:.1f} %\n{int(np.round(x*summary["TST"]/100))} min'
+    ax_pie.pie(percent, labels=labels, explode=[0.025]*4, autopct=autoptc,
+              textprops=dict(fontsize=16), labeldistance=1.1, pctdistance=0.7)
+    ax_pie.set_title(f"Verteilung '{night}'", fontsize=14, fontweight='bold')
 
     hypno_png = f'{report_dir}/hypno_{basename}.png'
     dist_png = f'{report_dir}/dist_{basename}.png'
