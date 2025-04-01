@@ -3,8 +3,9 @@ from setuptools import setup
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+<<<<<<< HEAD
 setup(name='sleep_utils',
-      version='1.19',
+      version='1.20',
       description='A collection of tools for sleep research',
       long_description=long_description,
       long_description_content_type="text/markdown",
