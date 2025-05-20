@@ -363,7 +363,7 @@ def plot_hypnogram_overview(hypnos_list, ax=None, cbar=True):
         ax = plt.gca()
 
     cmap = ListedColormap(
-        ['blue', 'lightblue', 'lightgreen', 'darkgreen', 'red', 'gray'])
+        ['blue', 'lightblue', 'lightgreen', 'darkgreen', 'red', 'gray'][:len(np.unique(hypno_map))])
     assert len(cmap.colors) == len(np.unique(hypno_map)
                                    ), 'must have same number of colors and stages'
     heatmap = ax.imshow(np.flipud(hypno_map),  aspect='auto',
@@ -454,7 +454,7 @@ def specgram_welch(data, sfreq, nfft=None, nperseg=None, noverlap=None,
 
 def specgram_multitaper(data, sfreq, sperseg=30, perc_overlap=1/3,
                         lfreq=0, ufreq=60, show_plot=True, ax=None,
-                        title=None, annotations=None):
+                        title=None, annotations=None, **kwargs):
     """
     Display EEG spectogram using a multitaper from 0-30 Hz (default)
 
@@ -512,7 +512,8 @@ def specgram_multitaper(data, sfreq, sperseg=30, perc_overlap=1/3,
     if show_plot:
         vmin = np.percentile(mesh, 2)
         vmax = np.percentile(mesh, 95)
-        ax.imshow(mesh, aspect='auto', cmap='viridis' , vmin=vmin, vmax=vmax)
+        kwargs = {'cmap': 'viridis'} | kwargs
+        ax.imshow(mesh, aspect='auto', vmin=vmin, vmax=vmax, **kwargs)
 
         t_fmt = '%M:%S' if seconds<60*15 else '%H:%M'
         formatter = matplotlib.ticker.FuncFormatter(lambda s, x: time.strftime(

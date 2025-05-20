@@ -16,12 +16,9 @@ def tempfile_wrapper(func):
         try:
             tempfile_name = tempfile.NamedTemporaryFile().name + '.edf'
             res = func(*args, **kwargs, tmp_edf=tempfile_name)
-        except Exception as e:
-            try:
+        finally:
+            if os.path.isfile(tempfile_name):
                 os.remove(tempfile_name)
-            except FileNotFoundError:
-                print('temporary file not found, probably exception before')
-            raise e
         return res
     return wrapped
 
@@ -62,6 +59,7 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
     """
     assert (eeg_chs is None == eog_chs is None) ^ (ch_groups is None), \
         'must either supply eeg_chs and eog_chs OR ch_groups'
+
     if eeg_chs is not None and eog_chs is not None and ch_groups is None:
         ch_groups = list(itertools.product(eeg_chs, eog_chs))
 
@@ -84,6 +82,12 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
     return predict_usleep(tmp_edf, api_token, eeg_chs=None, eog_chs=None,
                           ch_groups=ch_groups, model=model, saveto=saveto,
                           seconds_per_label=seconds_per_label)
+
+def delete_all_sessions(api_token):
+    """convenience function to delete all sessions and data"""
+    from usleep_api import USleepAPI
+    api = USleepAPI(api_token=api_token)
+    api.delete_all_sessions()
 
 def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
                    ch_groups=None, model='U-Sleep v2.0', saveto=None,
@@ -153,7 +157,7 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
         #   2: EEG Pz-Oz + EOG horizontal
         # Using 30 second windows (note: U-Slep v1.0 uses 128 Hz re-sampled signals)
 
-        session.predict(data_per_prediction=128*seconds_per_label,
+        assert session.predict(data_per_prediction=128*seconds_per_label,
                         channel_groups=ch_groups)
 
         # Wait for the job to finish or stream to the log output
