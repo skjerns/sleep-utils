@@ -452,6 +452,31 @@ def specgram_welch(data, sfreq, nfft=None, nperseg=None, noverlap=None,
     return spec.T
 
 
+def plot_spectrogram_sensors(raw, ch_type='grad', resample=100, block=True,
+                               lfreq=0, ufreq=35):
+    if isinstance(raw, str):
+        raw = mne.io.read_raw(raw, )
+    raw = raw.pick(ch_type)
+    raw.resample(resample, n_jobs=-1)
+
+    def plot_spectrum_for_sensors(ch_selection):
+        if not ch_selection:
+            return
+        fig, ax = plt.subplots(1, 1, figsize=[10, 6])
+        data = raw.get_data(ch_selection).mean(0)
+        specgram_multitaper(data, sfreq=raw.info['sfreq'],
+                            ufreq=ufreq, lfreq=lfreq, ax=ax)
+        ch_selection_name = ch_selection if len(ch_selection)<10 else f'{len(ch_selection)} channels'
+        ax.set_title(f'{os.path.basename(raw._filenames[0])}\nAvg. of {ch_selection_name}')
+        fig.tight_layout()
+
+    fig, ax = plt.subplots(1, 1)
+    fig, _ = raw.plot_sensors('select', ch_type=ch_type, show_names=True, block=False, axes=ax)
+    plotting_lambda = lambda x: plot_spectrum_for_sensors(fig.lasso.selection)
+    fig.canvas.mpl_connect('button_release_event', plotting_lambda)
+    plot_spectrum_for_sensors(raw.ch_names)
+    plt.show(block=block)
+
 def specgram_multitaper(data, sfreq, sperseg=30, perc_overlap=1/3,
                         lfreq=0, ufreq=60, show_plot=True, ax=None,
                         title=None, annotations=None, **kwargs):
