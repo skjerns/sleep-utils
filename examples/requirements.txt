@@ -1,0 +1,12 @@
+yasa
+natsort
+wonambi
+pandas
+mne
+numpy
+tqdm
+seaborn
+scipy
+matplotlib
+edfio
+usleep_api

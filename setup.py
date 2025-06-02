@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='sleep_utils',
-      version='1.21',
+      version='1.22',
       description='A collection of tools for sleep research',
       long_description=long_description,
       long_description_content_type="text/markdown",
@@ -14,7 +14,7 @@ setup(name='sleep_utils',
       license='GNU 2.0',
       packages=['sleep_utils'],
       install_requires=['appdirs', 'tqdm', 'mne', 'matplotlib', 'joblib',
-                        'pandas', 'seaborn', 'scipy', 'lspopt', 'natsort'],
+                        'pandas', 'seaborn', 'scipy', 'lspopt', 'natsort', 'usleep-api'],
       zip_safe=False,
       classifiers=[
           "Programming Language :: Python :: 3",

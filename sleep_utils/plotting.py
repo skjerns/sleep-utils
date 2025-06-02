@@ -452,22 +452,39 @@ def specgram_welch(data, sfreq, nfft=None, nperseg=None, noverlap=None,
     return spec.T
 
 
-def plot_spectrogram_sensors(raw, ch_type='grad', resample=100, block=True,
-                               lfreq=0, ufreq=35):
+def plot_spectrogram_sensors(raw, ch_type='grad', decimate=100, block=True,
+                             lfreq=0, ufreq=35, title=None, **kwargs):
     if isinstance(raw, str):
         raw = mne.io.read_raw(raw, )
     raw = raw.pick(ch_type)
-    raw.resample(resample, n_jobs=-1)
+
+    if title is None:
+        try:
+            title = os.path.basename(raw._filenames[0]) if len(raw._filenames) else 'unknown file'
+        except (AttributeError, TypeError):
+            title = 'unknown file'
+
+    if decimate:
+        data = raw.get_data()
+        factor = np.round(raw.info['sfreq']//decimate).astype(int)
+        data = data[:, ::factor]  # decimate data by subsampling, much faster
+        info_decimated = raw.info.copy()
+        with info_decimated._unlock():
+            info_decimated['sfreq'] /= factor
+        raw_decimated = mne.io.RawArray(data, info=info_decimated)
+        raw = raw_decimated
+
 
     def plot_spectrum_for_sensors(ch_selection):
         if not ch_selection:
             return
         fig, ax = plt.subplots(1, 1, figsize=[10, 6])
-        data = raw.get_data(ch_selection).mean(0)
+        data = raw.get_data(ch_selection).squeeze().mean(0)
         specgram_multitaper(data, sfreq=raw.info['sfreq'],
-                            ufreq=ufreq, lfreq=lfreq, ax=ax)
+                            ufreq=ufreq, lfreq=lfreq, ax=ax, **kwargs)
         ch_selection_name = ch_selection if len(ch_selection)<10 else f'{len(ch_selection)} channels'
-        ax.set_title(f'{os.path.basename(raw._filenames[0])}\nAvg. of {ch_selection_name}')
+
+        ax.set_title(f'{title}\nAvg. of {ch_selection_name}')
         fig.tight_layout()
 
     fig, ax = plt.subplots(1, 1)
