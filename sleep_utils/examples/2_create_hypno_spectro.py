@@ -178,17 +178,16 @@ notnormal = scipy.stats.normaltest(data, axis=-1)[0] > 4000
 
 stds[notnormal] = vmin
 
-from matplotlib import cm
 from matplotlib.colors import ListedColormap
-cmap = cm.get_cmap('RdYlGn_r', 256)
+cmap = plt.colormaps['RdYlGn_r']
 newcolors = cmap(np.linspace(0, 1, 256))
 gray = np.array([0.7, 0.7, 0.7, 1])
 newcolors[:1, :] = gray
 newcmp = ListedColormap(newcolors)
 
 ax.imshow(stds, cmap=newcmp, aspect='auto', interpolation='None', vmin=vmin, vmax=vmax)
-ch_names = [ch for ch, t in zip(raw.ch_names, raw_orig.get_channel_types()) if t=='eeg']
-ax.set_yticks(np.arange(len(data)), ch_names, fontsize=6)
+ch_names = [ch for ch, t in zip(raw_orig.ch_names, raw_orig.get_channel_types()) if t=='eeg']
+ax.set_yticks(np.arange(len(ch_names)), ch_names, fontsize=6)
 # ax.set_xticks(np.arange(len(data)), raw_orig.ch_names, fontsize=6)
 formatter = FuncFormatter(lambda x, pos: '{:.0f}'.format(x * epoch_len))
 ax.xaxis.set_major_formatter(formatter)
