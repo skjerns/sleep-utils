@@ -5,10 +5,13 @@ Created on Thu Apr 25 16:41:13 2024
 @author: simon.kern
 """
 import os
+import io
 import itertools
 import tempfile
 import mne
 from functools import wraps
+import numpy as np
+import pandas as pd
 
 def tempfile_wrapper(func):
     @wraps(func)
@@ -25,7 +28,7 @@ def tempfile_wrapper(func):
 @tempfile_wrapper
 def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
                    ch_groups=None, model='U-Sleep v2.0', saveto=None,
-                   seconds_per_label=30, tmp_edf=None):
+                   seconds_per_label=30, tmp_edf=None, return_proba=False):
     """convenience function to upload any mne.io.Raw to usleep
     will prepare the file by downsampling to 128 Hz and discarding
     any channels that are not used
@@ -81,7 +84,8 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
     mne.export.export_raw(tmp_edf, raw, fmt='edf', overwrite=True)
     return predict_usleep(tmp_edf, api_token, eeg_chs=None, eog_chs=None,
                           ch_groups=ch_groups, model=model, saveto=saveto,
-                          seconds_per_label=seconds_per_label)
+                          seconds_per_label=seconds_per_label,
+                          return_proba=return_proba)
 
 def delete_all_sessions(api_token):
     """convenience function to delete all sessions and data"""
@@ -91,7 +95,7 @@ def delete_all_sessions(api_token):
 
 def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
                    ch_groups=None, model='U-Sleep v2.0', saveto=None,
-                   seconds_per_label=30):
+                   seconds_per_label=30, return_proba=False):
     """helper function to retrieve a hypnogram prediction from usleep
     a valid API token is necessary to run the function.
 
@@ -123,10 +127,12 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
     hypno : np.array
         list of hypnogram labels.
     """
-    from sleep_utils import write_hypno
-    from usleep_api import USleepAPI
+    from .. import write_hypno
+    try:
+        from usleep_api import USleepAPI
+    except ModuleNotFoundError as e:
+        raise(ModuleNotFoundError(f"{e}\n If missing, please install via 'pip install usleep_api --no-deps'"))    # parameter checks
 
-    # parameter checks
     assert 0<seconds_per_label
     assert isinstance(seconds_per_label, int), f'must be integer but is {seconds_per_label}'
     assert (eeg_chs is None == eog_chs is None) ^ (ch_groups is None), \
@@ -167,14 +173,29 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
 
         if success:
             # Fetch hypnogram
-            hypno = session.get_hypnogram()['hypnogram']
+            with tempfile.NamedTemporaryFile(suffix='.npy') as tmp:
+                session.download_hypnogram(out_path=tmp.name, file_type='npy',
+                                           with_confidence_scores=True)
+                proba = np.load(tmp.name)
+
+            res = session.get_hypnogram()
+            hypno = res['hypnogram']
+            classes = [res['classes'][k] for k in sorted(res['classes'])]
+
+            # sanity check
+            assert (proba.argmax(1)==hypno).all(), 'hypno from confidence is unequal hypno from get'
+
             if saveto:
-                write_hypno(hypno, saveto, mode='csv',
+                write_hypno(hypno, saveto + '', mode='csv',
                             seconds_per_annotation=1, overwrite=True)
+                if return_proba:
+                    header = ', '.join(classes)
+                    np.savetxt(saveto + '.confidences.csv', proba, fmt='%.8f',
+                           header=header, delimiter=', ')
+
             # Download hypnogram file
-            # session.download_hypnogram(out_path="./hypnogram", file_type="tsv")
         else:
             raise Exception(f"Prediction failed.\n\n{hypno}")
 
         # Delete session (i.e., uploaded file, prediction and logs)
-    return hypno
+    return hypno, proba if return_proba else hypno
