@@ -11,6 +11,7 @@ import tempfile
 import mne
 from functools import wraps
 import numpy as np
+import warnings
 import pandas as pd
 
 def tempfile_wrapper(func):
@@ -25,40 +26,61 @@ def tempfile_wrapper(func):
         return res
     return wrapped
 
+def disable_ssl_verify():
+    """will monkey-patch requests made by usleep-api to veryify=False"""
+    # Save original method
+    from usleep_api import USleepAPI
+    original_request = USleepAPI._request
+
+    # Define patched method
+    def patched_request(self, endpoint, method, as_json=False,
+                        log_response=True, headers=None, **kwargs):
+        kwargs.setdefault('verify', False)
+        return original_request(self, endpoint, method, as_json=as_json,
+                                log_response=log_response, headers=headers, **kwargs)
+
+    # Apply monkey patch
+    USleepAPI._request = patched_request
+    warnings.warn('patched SSL to accept insecure connections')
+
 @tempfile_wrapper
 def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
                    ch_groups=None, model='U-Sleep v2.0', saveto=None,
                    seconds_per_label=30, tmp_edf=None, return_proba=False):
-    """convenience function to upload any mne.io.Raw to usleep
-    will prepare the file by downsampling to 128 Hz and discarding
-    any channels that are not used
+    """
+    Run U-Sleep prediction on an mne.io.Raw object.
+
+    Prepares the raw data by selecting specified EEG/EOG channels,
+    downsampling to 128 Hz, and exporting to EDF before submitting
+    to the U-Sleep API.
+
     Parameters
     ----------
-    edf_file : str
-        link to an edf file
-    eeg_chs : list
-        list of channels that are of type EEG and should be used for prediction
-            channel, e.g. [Fz, Cz]. ch_groups will be created based on that.
-    eog_chs : list
-        list of channels that are of type EOG and should be used for prediction
-        channel, e.g. [lEOG, rEOG]. ch_groups will be created based on that.
-    ch_groups : list
-        list of channel tuple, where each tuple contains one EEG and one EOG
-        channel, e.g. [[Fz, lEOG], [Cz, lEOG], [Fz, rEOG], [Cz, lEOG]].
+    raw : mne.io.Raw
+        The raw EEG recording.
     api_token : str
-        U-Sleep API token, apply for it at https://sleep.ai.ku.dk.
+        U-Sleep API token (https://sleep.ai.ku.dk).
+    eeg_chs : list of str, optional
+        EEG channel names for prediction.
+    eog_chs : list of str, optional
+        EOG channel names for prediction.
+    ch_groups : list of tuple, optional
+        Pairs of (EEG, EOG) channels.
     model : str
-        U-Sleep model to use, e.g. U-Sleep v1.0 or v2.0
+        U-Sleep model version (default: 'U-Sleep v2.0').
     saveto : str, optional
-        save hypnogram to this file, with one entry per second of
-        the hypnogram. The default is None.
+        Path to save the predicted hypnogram.
     seconds_per_label : int
-        number of seconds that each hypnogram label should span. default: 30
+        Label duration in seconds (default: 30).
+    tmp_edf : str, optional
+        Optional path to use for temporary EDF export.
+    return_proba : bool
+        If True, return class probabilities.
 
     Returns
     -------
-    hypno : np.array
-        list of hypnogram labels.
+    np.ndarray or dict
+        Hypnogram labels or probability predictions.
     """
     assert (eeg_chs is None == eog_chs is None) ^ (ch_groups is None), \
         'must either supply eeg_chs and eog_chs OR ch_groups'
@@ -96,38 +118,41 @@ def delete_all_sessions(api_token):
 def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
                    ch_groups=None, model='U-Sleep v2.0', saveto=None,
                    seconds_per_label=30, return_proba=False):
-    """helper function to retrieve a hypnogram prediction from usleep
-    a valid API token is necessary to run the function.
+    """
+    Run U-Sleep prediction on an EDF file via the U-Sleep API.
+
+    Requires a valid API token. Optionally saves output and returns
+    class probabilities.
 
     Parameters
     ----------
     edf_file : str
-        link to an edf file
-    eeg_chs : list
-        list of channels that are of type EEG and should be used for prediction
-            channel, e.g. [Fz, Cz]. ch_groups will be created based on that.
-    eog_chs : list
-        list of channels that are of type EOG and should be used for prediction
-        channel, e.g. [lEOG, rEOG]. ch_groups will be created based on that.
-    ch_groups : list
-        list of channel tuple, where each tuple contains one EEG and one EOG
-        channel, e.g. [[Fz, lEOG], [Cz, lEOG], [Fz, rEOG], [Cz, lEOG]].
+        Path to a local EDF file.
     api_token : str
-        U-Sleep API token, apply for it at https://sleep.ai.ku.dk.
+        U-Sleep API token (https://sleep.ai.ku.dk).
+    eeg_chs : list of str, optional
+        EEG channels used for prediction.
+    eog_chs : list of str, optional
+        EOG channels used for prediction.
+    ch_groups : list of tuple, optional
+        Explicit channel pairs (EEG, EOG). Overrides eeg_chs/eog_chs.
     model : str
-        U-Sleep model to use, e.g. U-Sleep v1.0 or v2.0
+        U-Sleep model version (default: 'U-Sleep v2.0').
     saveto : str, optional
-        save hypnogram to this file, with one entry per second of
-        the hypnogram. The default is None.
+        Path prefix for saving hypnogram (.csv) and confidences (.confidences.csv).
     seconds_per_label : int
-        number of seconds that each hypnogram label should span. default: 30
+        Seconds per hypnogram label (default: 30).
+    return_proba : bool
+        If True, also return class probability array.
 
     Returns
     -------
-    hypno : np.array
-        list of hypnogram labels.
+    hypno : np.ndarray
+        Predicted hypnogram labels.
+    proba : np.ndarray, optional
+        Label probabilities (if return_proba is True).
     """
-    from .. import write_hypno
+    from sleep_utils import write_hypno
     try:
         from usleep_api import USleepAPI
     except ModuleNotFoundError as e:
@@ -138,7 +163,7 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
     assert (eeg_chs is None == eog_chs is None) ^ (ch_groups is None), \
         'must either supply eeg_chs and eog_chs OR ch_groups'
 
-    # Create an API object and (optionally) a new session.
+    # Create an API object and a new session.
     try:
         api = USleepAPI(api_token=api_token)
         assert api,  f'could init API: {api}, {api.content}'
@@ -158,9 +183,7 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
         print(f'uploading {edf_file}')
         assert (res:=session.upload_file(edf_file)), f'upload failed: {res}, {res.content}'
 
-        # Start the prediction on two channel groups:
-        #   1: EEG Fpz-Cz + EOG horizontal
-        #   2: EEG Pz-Oz + EOG horizontal
+        # Start the prediction on channel groups
         # Using 30 second windows (note: U-Slep v1.0 uses 128 Hz re-sampled signals)
 
         assert session.predict(data_per_prediction=128*seconds_per_label,
@@ -173,10 +196,11 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
 
         if success:
             # Fetch hypnogram
-            with tempfile.NamedTemporaryFile(suffix='.npy') as tmp:
-                session.download_hypnogram(out_path=tmp.name, file_type='npy',
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp = os.path.join(tmp, 'probas.npy')
+                session.download_hypnogram(out_path=tmp, file_type='npy',
                                            with_confidence_scores=True)
-                proba = np.load(tmp.name)
+                proba = np.load(tmp)
 
             res = session.get_hypnogram()
             hypno = res['hypnogram']
@@ -198,4 +222,4 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
             raise Exception(f"Prediction failed.\n\n{hypno}")
 
         # Delete session (i.e., uploaded file, prediction and logs)
-    return hypno, proba if return_proba else hypno
+    return (hypno, proba) if return_proba else hypno
