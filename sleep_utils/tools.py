@@ -526,7 +526,7 @@ def write_hypno_csv(hypno, filename, seconds_per_annotation = 30, mode = 'second
     """
     assert not os.path.exists(filename) or overwrite, 'File already exists, no overwrite'
     assert mode in ['seconds', 'epochs'],'Mode must be seconds or epochs, is {}'.format(mode)
-    hypno = np.array(hypno, copy=False)
+    hypno = np.ascontiguousarray(hypno)
     try:
         if np.any(np.logical_or(hypno>5, hypno<0)):
             raise ValueError('Contains values outside of [0, 5], which stage should that be?? ')
@@ -1033,3 +1033,4 @@ def write_mne_edf(mne_raw, fname, picks=None, tmin=0, tmax=None,
     finally:
         f.close()
     return True
+
