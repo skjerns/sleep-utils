@@ -85,13 +85,10 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
     assert (eeg_chs is None == eog_chs is None) ^ (ch_groups is None), \
         'must either supply eeg_chs and eog_chs OR ch_groups'
 
-    if eeg_chs is not None and eog_chs is not None and ch_groups is None:
-        ch_groups = list(itertools.product(eeg_chs, eog_chs))
-
     raw = raw.copy()  # work on copy as we resample data etc.
     # convert to EDF file if not
     print('converting file to EDF')
-    chs = set([ch[0] for ch in ch_groups]) | set([ch[1] for ch in ch_groups])
+    chs = list(set(eeg_chs + eog_chs))
     # chs_idx = [i for i, ch in enumerate(raw.ch_names) if ch in chs]
     # only keep channels that are actually requested
     if any([ch not in raw.ch_names for ch in chs]):
@@ -101,11 +98,10 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
     if raw.info['sfreq']>128:
         print('downsampling to 128 hz')
         raw.resample(128, n_jobs=-2)
-    assert len(ch_groups)<=24, f'EEG * EOG must be at maximum 24 combinations, but is {len(ch_groups)=}'
 
     mne.export.export_raw(tmp_edf, raw, fmt='edf', overwrite=True)
-    return predict_usleep(tmp_edf, api_token, eeg_chs=None, eog_chs=None,
-                          ch_groups=ch_groups, model=model, saveto=saveto,
+    return predict_usleep(tmp_edf, api_token, eeg_chs=eeg_chs, eog_chs=eog_chs,
+                          ch_groups=None, model=model, saveto=saveto,
                           seconds_per_label=seconds_per_label,
                           return_proba=return_proba)
 
@@ -158,6 +154,8 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
     except ModuleNotFoundError as e:
         raise(ModuleNotFoundError(f"{e}\n If missing, please install via 'pip install usleep_api --no-deps'"))    # parameter checks
 
+    if len(eeg_chs)==0 or len(eog_chs)==0:
+        raise ValueError('One element missing: {len(eeg_chs)=}, {len(eog_chs)=}')
     assert 0<seconds_per_label
     assert isinstance(seconds_per_label, int), f'must be integer but is {seconds_per_label}'
     assert (eeg_chs is None == eog_chs is None) ^ (ch_groups is None), \
@@ -176,6 +174,8 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
         if eeg_chs is not None and eog_chs is not None and ch_groups is None:
             ch_groups = list(itertools.product(eeg_chs, eog_chs))
 
+        assert len(ch_groups)<=24, f'EEG * EOG must be at maximum 24 combinations, but is {len(ch_groups)=}'
+
         # See a list of valid models and set which model to use
         session.set_model(model)
 
@@ -186,8 +186,8 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
         # Start the prediction on channel groups
         # Using 30 second windows (note: U-Slep v1.0 uses 128 Hz re-sampled signals)
 
-        assert session.predict(data_per_prediction=128*seconds_per_label,
-                        channel_groups=ch_groups)
+        assert (res:=session.predict(data_per_prediction=128*seconds_per_label,
+                 channel_groups=ch_groups)), f'prediction failed: {res}, {res.content}'
 
         # Wait for the job to finish or stream to the log output
         # session.stream_prediction_log()

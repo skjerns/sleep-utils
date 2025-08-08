@@ -401,7 +401,7 @@ tr:nth-child(odd) {{
 </html>
 """
 
-assert (wkhtmlbin := shutil.which('wkhtmltopdf')), 'wkhtmltopdf binary not found, please get ZIP file from https://wkhtmltopdf.org/downloads.html and put binary in same directory as script'
+assert (wkhtmlbin := shutil.which('wkhtmltopdf')), 'wkhtmltopdf binary not found, please get ZIP file from https://wkhtmltopdf.org/downloads.html and put binary in same directory as script, or try installing via conda as `conda install conda-forge::wkhtmltopdf`'
 config = pdfkit.configuration(wkhtmltopdf=wkhtmlbin)
 
 assert pdfkit.from_string(html_text, file_pdf,
