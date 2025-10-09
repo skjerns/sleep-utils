@@ -10,7 +10,6 @@ This file contains all functions that deal with IO
 from . import plotting
 from . import tools
 from . import sigproc
-from . import external
 from . import gui
 from . import usleep_utils
 
