@@ -140,30 +140,49 @@ def plot_confusion_matrix(confmat, target_names=None, ax=None, title='',
     plt.tight_layout()
 
 
-def plot_noise_std(raw, picks=None, epoch_len=10, ax=None):
-    """plot the standard deviation of the channels"""
+def plot_noise(raw, picks=None, epoch_len=10, metric=np.std, ax=None):
+    """
+    Plot channel-wise noise metric over epochs.
 
+    Parameters
+    ----------
+    raw : Raw
+        Continuous data object.
+    picks : list | None
+        Channels to include. If None, all channels are used.
+    epoch_len : float
+        Epoch length in seconds.
+    metric : callable
+        Function to compute noise measure across epochs.
+    ax : matplotlib.axes.Axes | None
+        Axis to plot on. If None, a new figure is created.
+
+    Returns
+    -------
+    scores, im : np.ndarray, matplotlib.axes.Image
+        scores and img object with the plot.
+    """
     if ax is None:
         _, ax = plt.subplots(1, 1, figsize=[14, 8])
 
     ax.clear()
 
-    data = raw.get_data(picks=picks)
-    sfreq = raw.info['sfreq']
+    raw_picked = raw.copy().pick(picks)
+    data = raw_picked.get_data()
+    sfreq = raw_picked.info['sfreq']
+    length = len(data)
+    ch_names = raw_picked.ch_names
+    basename = os.path.basename(raw._filenames[0])
 
-    data = data[:, :int(len(raw)//(30*sfreq)*epoch_len*sfreq)]
+    # truncate data
+    data = data[:, :int(len(raw_picked)//epoch_len*sfreq)]
     data = data.reshape([len(data), -1, int(epoch_len*sfreq)])
-    stds = np.std(data, axis=-1) # get std per epoch as noise marker
+    scores = metric(data, axis=-1) # get std per epoch as noise marker
+    del data, raw_picked
 
     # this is rather stupid, but worth a try, 5 times median std
-    vmax = np.median(np.median(stds, 1))*5
-    # flatline detection at 100th of the medians
-    vmin_threshold = vmax/100/5
-    vmin = (vmax-vmin_threshold)/256 + vmin_threshold
-
-    notnormal = scipy.stats.normaltest(data, axis=-1)[0] > 4000
-
-    stds[notnormal] = vmin
+    vmax = np.quantile(scores, 0.95)
+    vmin = np.quantile(scores, 0.05)
 
     cmap = cm.get_cmap('RdYlGn_r', 256)
     newcolors = cmap(np.linspace(0, 1, 256))
@@ -171,16 +190,15 @@ def plot_noise_std(raw, picks=None, epoch_len=10, ax=None):
     newcolors[:1, :] = gray
     newcmp = ListedColormap(newcolors)
 
-    ch_names = raw.ch_names if picks is None else picks
-    im = ax.imshow(stds, cmap=newcmp, aspect='auto', interpolation='None', vmin=vmin, vmax=vmax)
-    ax.set_yticks(np.arange(len(data)), ch_names, fontsize=6)
+    im = ax.imshow(scores, cmap=newcmp, aspect='auto', interpolation='None', vmin=vmin, vmax=vmax)
+    ax.set_yticks(np.arange(length), ch_names, fontsize=5)
     # ax.set_xticks(np.arange(len(data)), raw_orig.ch_names, fontsize=6)
     formatter = FuncFormatter(lambda x, pos: '{:.0f}'.format(x * epoch_len))
     ax.xaxis.set_major_formatter(formatter)
     ax.set_xlabel('Seconds')
     ax.set_ylabel('Channels')
-    ax.set_title(f'Standard deviation of all channels {os.path.basename(raw._filenames[0])} for {epoch_len} second segments')
-    return stds, im
+    ax.set_title(f'{metric.__name__} of all channels {basename} for {epoch_len} second segments')
+    return scores, im
 
 def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
                    starttime=None, verbose=True, xlabel=True, ylabel=True,
