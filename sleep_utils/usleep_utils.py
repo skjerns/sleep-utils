@@ -239,10 +239,10 @@ def _score_sleep_file(edf_file,
         'must either supply eeg_chs and eog_chs OR ch_groups'
 
 #check if file exists
-    assert os.path.exists(edf_file), f"Error: '{filename}' does not exist."
+    assert os.path.exists(edf_file), f"Error: '{edf_file}' does not exist."
 
 #check if it is indeed an edf file
-    assert os.path.splitext(edf_file)[1].lower() == '.edf', f"File '{filename}' does not have an '.edf' extension."
+    assert os.path.splitext(edf_file)[1].lower() == '.edf', f"File '{edf_file}' does not have an '.edf' extension."
 
     try: 
         raw = mne.io.read_raw_edf(edf_file)
