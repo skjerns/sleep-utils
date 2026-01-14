@@ -58,8 +58,7 @@ def score_sleep(raw = None,
               seconds_per_label=30,
               tmp_edf=None,
               return_proba=False):
-    print ("1")
-    print (type(raw))
+
     if (raw):
         return _score_sleep_raw(raw,
                 api_token = api_token,
@@ -101,8 +100,7 @@ def _score_sleep_raw(raw,
                     seconds_per_label=30, 
                     tmp_edf=None, 
                     return_proba=False):
-    print ("2")
-    print (type(raw))
+
     """
     Run U-Sleep prediction on an mne.io.Raw object.
 
@@ -424,3 +422,4 @@ def _score_sleepyland(filename,
     hypno = np.argmax(proba, axis=1).tolist()
 
     return (hypno, proba) if return_proba else hypno
+
