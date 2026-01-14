@@ -415,6 +415,7 @@ def _score_sleepyland(filename,
 
     api_url = 'http://' + host + ':8888/files/output/' + folder_name + '/usleep/majority/' + file
     result = requests.get(api_url)
+    result.raise_for_status()  # This will raise an HTTPError for bad responses (4xx or 5xx)
 
 #Create Probabilities
 
