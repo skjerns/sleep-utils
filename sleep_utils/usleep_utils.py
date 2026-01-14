@@ -391,8 +391,7 @@ def _score_sleepyland(filename,
         'models': model,
         'channels': pairs,
     }
-    with open(filename, 'rb') as f:
-        files = {'edf-files': f}
+    files = {'edf-files': open(filename, 'rb')}
 
     print("waiting for prediction")
 
