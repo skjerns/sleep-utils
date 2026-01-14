@@ -146,8 +146,10 @@ def _score_sleep_raw(raw,
     raw = raw.copy()  # work on copy as we resample data etc.
     # convert to EDF file if not
     print('converting file to EDF')
-    if (eeg_chs and eog_chs):
+    if eeg_chs and eog_chs:
         chs = list(set(eeg_chs + eog_chs))
+    elif ch_groups:
+        chs = {channel for channel_value in ch_groups for channel in channel_value}
     # chs_idx = [i for i, ch in enumerate(raw.ch_names) if ch in chs]
     # only keep channels that are actually requested
 #    if any([ch not in raw.ch_names for ch in chs]):
