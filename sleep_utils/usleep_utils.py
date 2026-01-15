@@ -13,6 +13,8 @@ from functools import wraps
 import numpy as np
 import warnings
 import pandas as pd
+import requests
+from io import BytesIO
 
 def tempfile_wrapper(func):
     @wraps(func)
@@ -43,10 +45,62 @@ def disable_ssl_verify():
     USleepAPI._request = patched_request
     warnings.warn('patched SSL to accept insecure connections')
 
+def score_sleep(raw = None,
+              edf_file = None, 
+              api_token = None,
+              backend = 'sleepyland',
+              backend_url = None,
+              eeg_chs=None,
+              eog_chs=None,
+              ch_groups=None,
+              model=None,
+              saveto=None,
+              seconds_per_label=30,
+              tmp_edf=None,
+              return_proba=False):
+
+    if (raw):
+        return _score_sleep_raw(raw,
+                api_token = api_token,
+                backend = backend,
+                backend_url = backend_url,
+                eeg_chs = eeg_chs,
+                eog_chs = eog_chs,
+                ch_groups = ch_groups,
+                model = model,
+                saveto = saveto,
+                seconds_per_label = seconds_per_label,
+                return_proba = return_proba)
+    elif (edf_file):
+        return _score_sleep_file(edf_file,
+                api_token = api_token,
+                backend = backend,
+                backend_url = backend_url,
+                eeg_chs = eeg_chs,
+                eog_chs = eog_chs,
+                ch_groups = ch_groups,
+                model = model,
+                saveto = saveto,
+                seconds_per_label = seconds_per_label,
+                return_proba = return_proba)
+    else:
+        print("Requires either a valid EDF-file OR mne.io.Raw object")
+    
+
 @tempfile_wrapper
-def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
-                   ch_groups=None, model='U-Sleep v2.0', saveto=None,
-                   seconds_per_label=30, tmp_edf=None, return_proba=False):
+def _score_sleep_raw(raw, 
+                    api_token = None,
+                    backend = 'sleepyland',
+                    backend_url = None, 
+                    eeg_chs=None, 
+                    eog_chs=None,
+                    ch_groups=None, 
+                    model='U-Sleep v2.0', 
+                    saveto=None,
+                    seconds_per_label=30, 
+                    tmp_edf=None, 
+                    return_proba=False):
+
     """
     Run U-Sleep prediction on an mne.io.Raw object.
 
@@ -60,6 +114,10 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
         The raw EEG recording.
     api_token : str
         U-Sleep API token (https://sleep.ai.ku.dk).
+    backend : str
+        Which backend should be used for scoring.
+    backend_url : str 
+        URL for different backends. 
     eeg_chs : list of str, optional
         EEG channel names for prediction.
     eog_chs : list of str, optional
@@ -88,11 +146,14 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
     raw = raw.copy()  # work on copy as we resample data etc.
     # convert to EDF file if not
     print('converting file to EDF')
-    chs = list(set(eeg_chs + eog_chs))
+    if eeg_chs and eog_chs:
+        chs = list(set(eeg_chs + eog_chs))
+    elif ch_groups:
+        chs = {channel for channel_value in ch_groups for channel in channel_value}
     # chs_idx = [i for i, ch in enumerate(raw.ch_names) if ch in chs]
     # only keep channels that are actually requested
-    if any([ch not in raw.ch_names for ch in chs]):
-        raw.drop_channels([ch for ch in raw.ch_names if not ch in chs])
+#    if any([ch not in raw.ch_names for ch in chs]):
+#        raw.drop_channels([ch for ch in raw.ch_names if not ch in chs])
 
     # is resampled anyway internally, reduce data size
     if raw.info['sfreq']>128:
@@ -100,10 +161,17 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
         raw.resample(128, n_jobs=-2)
 
     mne.export.export_raw(tmp_edf, raw, fmt='edf', overwrite=True)
-    return predict_usleep(tmp_edf, api_token, eeg_chs=eeg_chs, eog_chs=eog_chs,
-                          ch_groups=None, model=model, saveto=saveto,
-                          seconds_per_label=seconds_per_label,
-                          return_proba=return_proba)
+    return _score_sleep_file(tmp_edf, 
+                        api_token = api_token, 
+                        backend = backend, 
+                        backend_url = backend_url,
+                        eeg_chs=eeg_chs, 
+                        eog_chs=eog_chs,
+                        ch_groups=ch_groups, 
+                        model=model, 
+                        saveto=saveto,
+                        seconds_per_label=seconds_per_label,
+                        return_proba=return_proba)
 
 def delete_all_sessions(api_token):
     """convenience function to delete all sessions and data"""
@@ -111,9 +179,17 @@ def delete_all_sessions(api_token):
     api = USleepAPI(api_token=api_token)
     api.delete_all_sessions()
 
-def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
-                   ch_groups=None, model='U-Sleep v2.0', saveto=None,
-                   seconds_per_label=30, return_proba=False):
+def _score_sleep_file(edf_file,
+                api_token = None, 
+                backend = 'sleepyland', 
+                backend_url=None, 
+                eeg_chs=None, 
+                eog_chs=None,
+                ch_groups=None, 
+                model='U-Sleep v2.0', 
+                saveto=None,
+                seconds_per_label=30, 
+                return_proba=False):
     """
     Run U-Sleep prediction on an EDF file via the U-Sleep API.
 
@@ -124,6 +200,10 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
     ----------
     edf_file : str
         Path to a local EDF file.
+    backend : str
+        Which backend should be used for scoring.
+    backend_url : str 
+        URL for different backends. 
     api_token : str
         U-Sleep API token (https://sleep.ai.ku.dk).
     eeg_chs : list of str, optional
@@ -149,18 +229,79 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
         Label probabilities (if return_proba is True).
     """
     from sleep_utils import write_hypno
-    try:
-        from usleep_api import USleepAPI
-    except ModuleNotFoundError as e:
-        raise(ModuleNotFoundError(f"{e}\n If missing, please install via 'pip install usleep_api --no-deps'"))    # parameter checks
+#    from tools import write_hypno
 
-    if len(eeg_chs)==0 or len(eog_chs)==0:
-        raise ValueError('One element missing: {len(eeg_chs)=}, {len(eog_chs)=}')
+#    if len(eeg_chs)==0 or len(eog_chs)==0:
+#        raise ValueError('One element missing: {len(eeg_chs)=}, {len(eog_chs)=}')
     assert 0<seconds_per_label
     assert isinstance(seconds_per_label, int), f'must be integer but is {seconds_per_label}'
     assert (eeg_chs is None == eog_chs is None) ^ (ch_groups is None), \
         'must either supply eeg_chs and eog_chs OR ch_groups'
 
+#check if file exists
+    assert os.path.exists(edf_file), f"Error: '{edf_file}' does not exist."
+
+#check if it is indeed an edf file
+    assert os.path.splitext(edf_file)[1].lower() == '.edf', f"File '{edf_file}' does not have an '.edf' extension."
+
+    try: 
+        raw = mne.io.read_raw_edf(edf_file)
+    except Exception as e:
+        raise ValueError(f"Error: File '{edf_file}' is not a valid EDF file. Details: {str(e)}")
+
+#create a list of all requested channels
+    if (eeg_chs and eog_chs):
+        channels = eeg_chs + eog_chs
+    elif (ch_groups):
+        channels = {channel for channel_value in ch_groups for channel in channel_value}
+
+#load channels from file
+    all_channels = raw.ch_names
+
+#check if all channels are present in file
+    for i in channels:
+        assert i in all_channels, f"Error: {i} not a channel in file"
+
+    if backend in ('sleepyland', 'sleepyland.zi.local', 'local'):
+        if (return_proba):
+            hypno, proba = _score_sleepyland(edf_file, eeg_chs=eeg_chs, eog_chs=eog_chs, ch_groups=ch_groups, return_proba=return_proba)
+        else:
+            hypno = _score_sleepyland(edf_file, eeg_chs=eeg_chs, eog_chs=eog_chs, ch_groups=ch_groups, return_proba=return_proba)
+
+    elif (backend == 'denmark'):
+        if (return_proba):
+            hypno, proba = _score_usleep_denmark(edf_file, api_token, eeg_chs=eeg_chs, eog_chs=eog_chs, ch_groups=ch_groups, return_proba=return_proba)
+        else:
+            hypno = _score_usleep_denmark(edf_file, api_token, eeg_chs=eeg_chs, eog_chs=eog_chs, ch_groups=ch_groups, return_proba=return_proba)
+        
+
+
+    if saveto:
+        write_hypno(hypno, saveto + '.csv', mode='csv',
+                    seconds_per_annotation=1, overwrite=True)
+        if return_proba:
+#            header = ', '.join(classes)
+            np.savetxt(saveto + '.confidences.csv', proba, fmt='%.8f',
+                   delimiter=', ')
+#                   header=header, delimiter=', ')
+
+            # Download hypnogram file
+
+        # Delete session (i.e., uploaded file, prediction and logs)
+    return (hypno, proba) if return_proba else hypno
+
+def _score_usleep_denmark(edf_file, 
+                    api_token, 
+                    eeg_chs=None, 
+                    eog_chs=None,
+                    ch_groups=None, 
+                    model='U-Sleep v2.0',
+                    seconds_per_label=30, 
+                    return_proba=False):
+    try:
+        from usleep_api import USleepAPI
+    except ModuleNotFoundError as e:
+        raise(ModuleNotFoundError(f"{e}\n If missing, please install via 'pip install usleep_api --no-deps'"))    # parameter checks
     # Create an API object and a new session.
     try:
         api = USleepAPI(api_token=api_token)
@@ -206,20 +347,81 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
             hypno = res['hypnogram']
             classes = [res['classes'][k] for k in sorted(res['classes'])]
 
+
             # sanity check
             assert (proba.argmax(1)==hypno).all(), 'hypno from confidence is unequal hypno from get'
-
-            if saveto:
-                write_hypno(hypno, saveto + '', mode='csv',
-                            seconds_per_annotation=1, overwrite=True)
-                if return_proba:
-                    header = ', '.join(classes)
-                    np.savetxt(saveto + '.confidences.csv', proba, fmt='%.8f',
-                           header=header, delimiter=', ')
-
-            # Download hypnogram file
         else:
             raise Exception(f"Prediction failed.\n\n{hypno}")
-
-        # Delete session (i.e., uploaded file, prediction and logs)
     return (hypno, proba) if return_proba else hypno
+
+
+def _score_sleepyland(filename, 
+                    eeg_chs=None, 
+                    eog_chs=None, 
+                    ch_groups=None, 
+                    model = 'usleep', 
+                    return_proba=False):
+#check if channels are set
+    assert (eeg_chs and eog_chs) or ch_groups, f"Error: EEG and EOG channels or channels pairs must be set"
+
+
+#create pairs
+    if (eeg_chs and eog_chs):
+        channels = eeg_chs + eog_chs
+        pairs = ''
+        for i in eeg_chs:
+            for j in eog_chs:
+                pair = i + '++' + j
+                if pairs:
+                    pairs = pairs + '&&' + pair
+                else:
+                    pairs = pair
+    elif (ch_groups):
+        channels = {channel for channel_value in ch_groups for channel in channel_value }
+        pairs = '&&'.join([f"{a}++{b}" for a, b in ch_groups])
+#setting variables
+    host = 'sleepyland.zi.local'
+    folder_name = os.path.splitext(os.path.basename(filename))[0]
+    url = 'http://' + host + ':8887/process_one'
+
+
+#prepare payload for POST request
+    data = {
+        'folderName': folder_name,
+        'models': model,
+        'channels': pairs,
+    }
+    files = {'edf-files': open(filename, 'rb')}
+
+    print("waiting for prediction")
+
+#Send the data
+    try:
+        response = requests.post(url, files=files, data=data)
+
+        response.raise_for_status()
+
+        print("Status Code:", response.status_code)
+        print("Response:", response.text)
+
+    except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            raise
+
+    
+#Download Data
+
+    file = folder_name + '_PRED.npy' 
+
+    api_url = 'http://' + host + ':8888/files/output/' + folder_name + '/usleep/majority/' + file
+    result = requests.get(api_url)
+    result.raise_for_status()  # This will raise an HTTPError for bad responses (4xx or 5xx)
+
+#Create Probabilities
+
+    proba = np.load(BytesIO(result.content))
+
+    hypno = np.argmax(proba, axis=1).tolist()
+
+    return (hypno, proba) if return_proba else hypno
+
