@@ -406,6 +406,7 @@ def _score_sleepyland(filename,
 
     except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
+            raise
 
     
 #Download Data
