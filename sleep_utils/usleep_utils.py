@@ -247,7 +247,7 @@ def _score_sleep_file(edf_file,
     try: 
         raw = mne.io.read_raw_edf(edf_file)
     except Exception as e:
-        assert False, f"Error: File '{edf_file}' is not a valid EDF file. Details: {str(e)}"
+        raise ValueError(f"Error: File '{edf_file}' is not a valid EDF file. Details: {str(e)}")
 
 #create a list of all requested channels
     if (eeg_chs and eog_chs):
