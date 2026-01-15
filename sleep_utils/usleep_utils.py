@@ -262,7 +262,7 @@ def _score_sleep_file(edf_file,
     for i in channels:
         assert i in all_channels, f"Error: {i} not a channel in file"
 
-    if (backend == 'sleepyland' or backend == 'sleepyland.zi.local' or backend == 'local'):
+    if backend in ('sleepyland', 'sleepyland.zi.local', 'local'):
         if (return_proba):
             hypno, proba = _score_sleepyland(edf_file, eeg_chs=eeg_chs, eog_chs=eog_chs, ch_groups=ch_groups, return_proba=return_proba)
         else:
