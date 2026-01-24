@@ -15,6 +15,7 @@ import itertools
 import tempfile
 import mne
 import numpy as np
+import pandas as pd
 from io import StringIO
 from pprint import pprint
 from datetime import datetime, timezone, timedelta
@@ -260,7 +261,7 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
         pprint(summary)
     if sanity_check:
         hypno_check_summary(summary)
-    return summary
+    return pd.Series(summary)
 
 def hypno_check_summary(summary, mode='warn'):
     """does a sanity check on hypnogram summary values"""
