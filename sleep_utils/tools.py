@@ -113,7 +113,7 @@ def analyze_function(fun):
         print('Changes shift')
 
 def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
-                  print_summary=False, sanity_check=True):
+                  print_summary=False, sanity_check=True, convert_to_aasm=False):
     """ summarizes the sleep parameters according to the AASM recommendations
 
     It is assumed that the hypnogram is starting with the lights off marker and
@@ -157,9 +157,13 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     :param print_summary: print output or not
     :param sanity_check: perform a sanity check on the values that have been
                          computed
+    :param convert_to_aasm: automatically convert stage 4 to 3 (N4->SWS)
     """
     s = AttrDict()
     hypno = np.array(hypno)
+
+    if convert_to_aasm:
+        hypno[hypno==4] = 3
 
     sleep_stages = {'W':0, 'N1':1, 'N2':2, 'SWS':3, 'REM':4}
     # do some sanity checks
