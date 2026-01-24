@@ -20,7 +20,7 @@ from pprint import pprint
 from datetime import datetime, timezone, timedelta
 from joblib import Memory
 
-conv_dict = {'W':0, 'WAKE':0, 'N1': 1, 'N2': 2, 'N3': 3, 'R':4, 'REM': 4, 'ART': 9,
+conv_dict = {'W':0, 'WAKE':0, 'N1': 1, 'N2': 2, 'SWS': 3, 'R':4, 'REM': 4, 'ART': 9,
              -1:9, '-1':9, **{i:i for i in range(0, 10)}, **{f'{i}':i for i in range(0, 10)}}
 
 
@@ -124,20 +124,20 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
         TRT:     total recording time - from recording beginning to end
         SE:      sleep efficiency: TST/TBT
         WASO:    total time spent in Wake between sleep onset/offset in minutes
-        min S1:  total time spent in S1 in minutes
-        min S2:  total time spent in S2 in minutes
-        min S3:  total time spent in S3 in minutes
+        min N1:  total time spent in N1 in minutes
+        min N2:  total time spent in N2 in minutes
+        min SWS:  total time spent in SWS in minutes
         min REM: total time spent in REM in minutes
-        total_NREM:     total NREM sleep time - sum of minutes in S1, S2, S3
+        total_NREM:     total NREM sleep time - sum of minutes in N1, N2, SWS
         % WASO:  percentage Wake after sleep onset relative to time
                  between lights off and lights on (TBT)
-        % S1:    relative time spent in S1 to all sleep stages (TST)
-        % S2:    relative time spent in S2 to all sleep stages (TST)
-        % S3:    relative time spent in S3 to all sleep stages (TST)
+        % N1:    relative time spent in N1 to all sleep stages (TST)
+        % N2:    relative time spent in N2 to all sleep stages (TST)
+        % SWS:    relative time spent in SWS to all sleep stages (TST)
         % REM:   relative time spent in REM to TST
-        lat S1:  latency of first S1 epoch after lights off in minutes
-        lat S2:  latency of first S2 epoch after lights off in minutes
-        lat S3:  latency of first S3 epoch after lights off in minutes
+        lat N1:  latency of first N1 epoch after lights off in minutes
+        lat N2:  latency of first N2 epoch after lights off in minutes
+        lat SWS:  latency of first SWS epoch after lights off in minutes
         lat REM: latency of first REM epoch after lights off in minutes
         awakenings:     number of awakenings
         dur_awakenings: average minutes of being awake
@@ -149,7 +149,7 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     For details and definitions see Iber et al (2007) The AASM Manual for the
     Scoring of Sleep and Associated Events.
 
-    :param hypno: a hypnogram in format W:0, S1:1, S2:2, S3:3, REM:4
+    :param hypno: a hypnogram in format W:0, N1:1, N2:2, SWS:3, REM:4
     :param epochlen: the lenght of each entry in the hypnogram, e.g. 30 seconds
     :param lights_off_epoch: at which epoch lights were turned off
     :param lights_on_epoch: at which epoch lights were turned on
@@ -160,7 +160,7 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     s = AttrDict()
     hypno = np.array(hypno)
 
-    sleep_stages = {'W':0, 'S1':1, 'S2':2, 'SWS':3, 'REM':4}
+    sleep_stages = {'W':0, 'N1':1, 'N2':2, 'SWS':3, 'REM':4}
     # do some sanity checks
     for stage, num in sleep_stages.items():
         if not num in hypno:
@@ -185,26 +185,23 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
     SE = np.round(TST/TBT, 2)  # sleep efficiency
 
     WASO = (sleep_offset-sleep_onset+1)*epochlen/60-TST
-    min_S1 = sum(hypno==1)*epochlen/60
-    min_S2 = sum(hypno==2)*epochlen/60
-    min_S3 = sum(hypno==3)*epochlen/60
+    min_N1 = sum(hypno==1)*epochlen/60
+    min_N2 = sum(hypno==2)*epochlen/60
+    min_SWS = sum(hypno==3)*epochlen/60
     min_REM = sum(hypno==4)*epochlen/60
-    sum_NREM = min_S1 + min_S2 + min_S3
+    sum_NREM = min_N1 + min_N2 + min_SWS
 
     perc_W = np.round(WASO/TBT * 100, 1)
-    perc_S1 = np.round(min_S1/TST * 100, 1)
-    perc_S2 = np.round(min_S2/TST * 100, 1)
-    perc_S3 = np.round(min_S3/TST * 100, 1)
+    perc_N1 = np.round(min_N1/TST * 100, 1)
+    perc_N2 = np.round(min_N2/TST * 100, 1)
+    perc_SWS = np.round(min_SWS/TST * 100, 1)
     perc_REM = np.round(min_REM/TST * 100, 1)
 
     # latency calculation
-    for stage, name in enumerate(['lat_S1', 'lat_S2', 'lat_S3', 'lat_REM'], 1):
-        if stage in hypno:
-            locals()[name] = (np.argmax(hypno==stage)-lights_off_epoch)*epochlen/60
-        else:
-            # overwrite values with nan if the stage is not found at all
-           warnings.warn(f'Stage for {name} not found, latency is NaN')
-           locals()[name] = np.nan
+    lat_N1 = (np.argmax(hypno==1)-lights_off_epoch)*epochlen/60 if 1 in hypno else np.nan
+    lat_N2 = (np.argmax(hypno==2)-lights_off_epoch)*epochlen/60 if 2 in hypno else np.nan
+    lat_SWS = (np.argmax(hypno==3)-lights_off_epoch)*epochlen/60 if 3 in hypno else np.nan
+    lat_REM = (np.argmax(hypno==4)-lights_off_epoch)*epochlen/60 if 4 in hypno else np.nan
 
     lights_off = lights_off_epoch*epochlen/60
     lights_on = lights_on_epoch*epochlen/60
@@ -243,9 +240,9 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
             in_rem = False
 
     summary = locals().copy()
-    include = ['TST', 'TBT', 'TRT', 'SE', 'WASO', 'min_S1', 'min_S2', 'min_S3',
-               'min_REM', 'sum_NREM', 'perc_W', 'perc_S1', 'perc_S2', 'perc_S3',
-               'perc_REM', 'lat_S1', 'lat_S2', 'lat_S3', 'lat_REM', 'lights_off',
+    include = ['TST', 'TBT', 'TRT', 'SE', 'WASO', 'min_N1', 'min_N2', 'min_SWS',
+               'min_REM', 'sum_NREM', 'perc_W', 'perc_N1', 'perc_N2', 'perc_SWS',
+               'perc_REM', 'lat_N1', 'lat_N2', 'lat_SWS', 'lat_REM', 'lights_off',
                'lights_on', 'recording_length', 'awakenings', 'stage_shifts',
                'mean_dur_awakenings', 'FI', 'SQI', 'sleep_cycles']
     summary = dict()
@@ -283,15 +280,15 @@ def hypno_check_summary(summary, mode='warn'):
     s = AttrDict(summary)
 
     # Test NREM sum calculation
-    if not s.sum_NREM == s.min_S1 + s.min_S2 + s.min_S3:
-        action('Sum of S1+S2+S3 != NREM')
+    if not s.sum_NREM == s.min_N1 + s.min_N2 + s.min_SWS:
+        action('Sum of N1+N2+SWS != NREM')
 
     # Test TRT calculation (assuming epochlen=30)
     if not s.TRT >=s.TBT:
         action(f'recording TRT must be longer than TBT: {s.TRT}<{s.TBT}?')
 
 
-    total_percentage = s.perc_S1 + s.perc_S2 + s.perc_S3 + s.perc_REM
+    total_percentage = s.perc_N1 + s.perc_N2 + s.perc_SWS + s.perc_REM
     if not np.isclose(total_percentage, 100, atol=0.1):
         action(f'{total_percentage}!=100 for sum of sleep stage percentages')
 
@@ -385,7 +382,7 @@ def read_hypno(hypno_file, epochlen = 30, epochlen_infile=None, mode='auto',
 
     #conversion dictionary
     if conf_dict is None:
-        conv_dict = {'W':0, 'WAKE':0, 'N1': 1, 'N2': 2, 'N3': 3, 'R':4, 'REM': 4, 'ART': 9,
+        conv_dict = {'W':0, 'WAKE':0, 'N1': 1, 'N2': 2, 'SWS': 3, 'R':4, 'REM': 4, 'ART': 9,
                      -1:9, '-1':9, **{i:i for i in range(0, 10)}, **{f'{i}':i for i in range(0, 10)}}
 
     lines = content.split('\n')
@@ -451,7 +448,7 @@ def read_hypno(hypno_file, epochlen = 30, epochlen_infile=None, mode='auto',
 
     elif mode=='alice':
         epochlen_infile = 30
-        conv_dict = {'WK':0,'N1':1, 'N2':2, 'N3':3, 'REM':4}
+        conv_dict = {'WK':0,'N1':1, 'N2':2, 'SWS':3, 'REM':4}
         lines = [line.split(',')[-1] for line in lines[1:] if len(line)>0]
         lines = [[line]*epochlen_infile for line in lines]
         try: stages = np.array([conv_dict[l] for l in np.array(lines).flatten()])
@@ -474,7 +471,7 @@ def hypno2time(hypno, seconds_per_epoch=1):
     """
     hypno = np.repeat(hypno, seconds_per_epoch)
     s = '*Duration_sec {}\n'.format(len(hypno))
-    stages = ['Wake', 'N1', 'N2', 'N3', 'REM', 'Art']
+    stages = ['Wake', 'N1', 'N2', 'SWS', 'REM', 'Art']
     d = dict(enumerate(stages))
     hypno_str = [d[h] for h in hypno]
 
@@ -550,7 +547,7 @@ def write_hypno(hypno, filename, mode='time', seconds_per_annotation = 30, comme
         0 Wake
         1 N1
         2 N2
-        3 N3
+        3 SWS
         4 REM
         5 Artefact / unknown
 
@@ -1033,4 +1030,3 @@ def write_mne_edf(mne_raw, fname, picks=None, tmin=0, tmax=None,
     finally:
         f.close()
     return True
-
