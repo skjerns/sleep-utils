@@ -43,32 +43,39 @@ or
 pip install git+https://github.com/skjerns/sleep-utils
 ```
 
-#### Functionality
+## Modules
 
-`import sleep_utils`
+The `sleep-utils` package is organized into several modules, each providing specific functionalities for sleep data analysis.
 
-- hypnograms
-  
-  - load (`sleep_utils.read_hypno(file)`)
-  
-  - save(`sleep_utils.write_hypno(hypno, file)`
-  
-  - plot (`sleep_utils.plot_hypnogram(hypno)`)
-  
-  - convert (read&save)
-  
-  - print summary (TST, WASO, ...) (`sleep_utils.hypno_summary(hypno)`)
+### `sleep_utils.gui`
 
-- spectrograms
-  
-  - multitaper spectrogram (`sleep_utils.specgram_multitaper(data, sfreq)`)
-  
-  - welch spectrogram(`sleep_utils.specgram_welch(data, sfreq)`)
+This module provides graphical user interface (GUI) components built with `tkinter`. It simplifies tasks like selecting files and folders, and getting user input, making your scripts more interactive.
 
-- confusion matrix
-  
-  - plot inter rater confusion matrix (`sleep_utils.plot_confusion_matrix(confmat)`)
+### `sleep_utils.plotting`
 
-- mne-edf
-  
-  - save MNE to edf (`sleep_utils.write_mne_edf(raw, filename)`)
+A comprehensive module for creating various plots related to sleep analysis. You can use it to:
+- Plot hypnograms
+- Generate spectrograms of EEG data
+- Visualize confusion matrices for inter-rater reliability
+- Plot noise characteristics of your signals
+
+### `sleep_utils.sigproc`
+
+This module contains a collection of functions for signal processing of physiological data. Key features include:
+- Filtering and resampling signals
+- Detecting artifacts in your data
+- Heuristics for spindle detection and other sleep-related events.
+
+### `sleep_utils.tools`
+
+A set of utility functions that make working with sleep data easier. This module provides tools for:
+- Reading and writing hypnograms in various formats
+- Calculating and summarizing sleep statistics (e.g., TST, WASO, sleep efficiency) based on AASM guidelines.
+- Inferring relationships between PSG and hypnogram files.
+
+### `sleep_utils.usleep_utils`
+
+This module provides a convenient wrapper around the [U-Sleep API](https://sleep.ai.ku.dk) for automatic sleep staging. You can use it to:
+- Predict sleep stages from EEG/EOG data using the U-Sleep model
+- Manage prediction sessions with the API
+- It supports both `mne.io.Raw` objects and EDF files as input.
