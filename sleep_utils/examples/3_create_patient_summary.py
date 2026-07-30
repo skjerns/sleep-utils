@@ -108,7 +108,7 @@ ax_bar = fig2.add_subplot(gs[0])
 ax_pie = fig2.add_subplot(gs[1])
 
 night_names = ['Nacht 0', 'Nacht 1', 'Nacht 2', 'Nacht 3']
-labeldict = {0: 'W', 4: 'REM', 1: 'S1', 2: 'S2', 3: 'SWS', }
+labeldict = {0: 'W', 4: 'REM', 1: 'N1', 2: 'N2', 3: 'SWS', }
 
 hypno_pngs = []
 dist_pngs = []
@@ -174,10 +174,10 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
     starttime = raw.info["meas_date"].replace(microsecond=0, tzinfo=None) # remove timezone and millisecond info
     summary = sleep_utils.hypno_summary(hypno, lights_on_epoch=lights_on_epoch, lights_off_epoch=lights_off_epoch)
     summaries += [pd.Series(summary, name=night)]
-    labels = ['Wach', 'S1', 'S2', 'SWS', 'REM']
-    values = [summary['WASO'], summary['min_S1'], summary['min_S2'], summary['min_S3'], summary['min_REM']]
-    percent = [summary['perc_W'], summary['perc_S1'], summary['perc_S2'], summary['perc_S3'], summary['perc_REM']]
-    labelszip = zip(['\nWach', 'S1', 'S2', 'SWS', 'REM'], values, percent)
+    labels = ['Wach', 'N1', 'N2', 'SWS', 'REM']
+    values = [summary['WASO'], summary['min_N1'], summary['min_N2'], summary['min_SWS'], summary['min_REM']]
+    percent = [summary['perc_W'], summary['perc_N1'], summary['perc_N2'], summary['perc_SWS'], summary['perc_REM']]
+    labelszip = zip(['\nWach', 'N1', 'N2', 'SWS', 'REM'], values, percent)
     if plt.rcParams['text.usetex'] :
         stageslabels = [f'\\textbf{{{l}}}'for l, m, p in labelszip]
     else:
@@ -217,9 +217,9 @@ for n, (raw, hypno) in enumerate(zip(raws, hypnos)):
     ax_bar.axis('off')
 
     # Create pie chart without "Wach"
-    labels = ['S1', 'S2', 'SWS', 'REM']
-    values = [summary['min_S1'], summary['min_S2'], summary['min_S3'], summary['min_REM']]
-    percent = [summary['perc_S1'], summary['perc_S2'], summary['perc_S3'], summary['perc_REM']]
+    labels = ['N1', 'N2', 'SWS', 'REM']
+    values = [summary['min_N1'], summary['min_N2'], summary['min_SWS'], summary['min_REM']]
+    percent = [summary['perc_N1'], summary['perc_N2'], summary['perc_SWS'], summary['perc_REM']]
 
     # Recalculate percentages to total 100% for the sleep stages only
     sleep_total = sum(percent)
@@ -255,19 +255,19 @@ summaries += [pd.Series({
     'TRT': 'N/A',  # Total Recording Time varies
     'TBT': '360-600',  # Total Bed Time in minutes (6 to 10 hours)
     'WASO': '0-30',  # Wake After Sleep Onset in minutes
-    'min_S1': '10-30',  # Minutes in stage S1
-    'min_S2': '180-300',  # Minutes in stage S2
-    'min_S3': '30-120',  # Minutes in stage S3
+    'min_N1': '10-30',  # Minutes in stage N1
+    'min_N2': '180-300',  # Minutes in stage N2
+    'min_SWS': '30-120',  # Minutes in stage N3
     'min_REM': '60-150',  # Minutes in REM sleep
     'sum_NREM': '210-420',  # Sum of Minutes in Non-REM
     'perc_W': '1-5%',  # Percentage of wake time
-    'perc_S1': '2-8%',  # Percentage of stage S1 time
-    'perc_S2': '40-60%',  # Percentage of stage S2 time
-    'perc_S3': '10-25%',  # Percentage of stage S3 time
+    'perc_N1': '2-8%',  # Percentage of stage N1 time
+    'perc_N2': '40-60%',  # Percentage of stage N2 time
+    'perc_SWS': '10-25%',  # Percentage of stage N3 time
     'perc_REM': '15-30%',  # Percentage of REM sleep time
-    'lat_S1': '5-25',  # Latency to stage S1 in minutes
-    'lat_S2': '10-30',  # Latency to stage S2 in minutes
-    'lat_S3': '20-40',  # Latency to stage S3 in minutes
+    'lat_N1': '5-25',  # Latency to stage N1 in minutes
+    'lat_N2': '10-30',  # Latency to stage N2 in minutes
+    'lat_SWS': '20-40',  # Latency to stage N3 in minutes
     'lat_REM': '70-120',  # Latency to REM sleep in minutes
     'lights_off': 'N/A',  # Sleep onset after recording start in minutes
     'lights_on': 'N/A',  # Sleep offset after recording start
@@ -287,19 +287,19 @@ full_names = {
     'TRT': 'Gesamtaufzeichnungszeit',
     'TBT': 'Gesamte Zeit im Bett',
     'WASO': 'Wachminuten nach erstem Schlafbeginn',
-    'min_S1': 'Minuten in Schlafphase S1',
-    'min_S2': 'Minuten in Schlafphase S2',
-    'min_S3': 'Minuten in Schlafphase S3',
+    'min_N1': 'Minuten in Schlafphase N1',
+    'min_N2': 'Minuten in Schlafphase N2',
+    'min_SWS': 'Minuten in Schlafphase N3',
     'min_REM': 'Minuten im REM-Schlaf',
-    'sum_NREM': 'Minuten im Non-REM (S2+S3)',
+    'sum_NREM': 'Minuten im Non-REM (N2+N3)',
     'perc_W': 'Prozent der Wachzeit im Bett',
-    'perc_S1': 'Prozent der Schlafphase S1',
-    'perc_S2': 'Prozent der Schlafphase S2',
-    'perc_S3': 'Prozent der Schlafphase S3',
+    'perc_N1': 'Prozent der Schlafphase N1',
+    'perc_N2': 'Prozent der Schlafphase N2',
+    'perc_SWS': 'Prozent der Schlafphase N3',
     'perc_REM': 'Prozent der REM-Schlafzeit',
-    'lat_S1': 'Latenz bis Schlafphase S1',
-    'lat_S2': 'Latenz bis Schlafphase S2',
-    'lat_S3': 'Latenz bis Schlafphase S3',
+    'lat_N1': 'Latenz bis Schlafphase N1',
+    'lat_N2': 'Latenz bis Schlafphase N2',
+    'lat_SWS': 'Latenz bis Schlafphase N3',
     'lat_REM': 'Latenz bis REM-Schlaf',
     'lights_off': 'Licht aus nach Aufzeichnungsbeginn',
     'lights_on': 'Licht an nach Aufzeichnungsbeginn',

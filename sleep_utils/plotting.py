@@ -207,7 +207,7 @@ def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
     Plot a hypnogram, the flexible way.
 
     A labeldict should give a mapping which integer belongs to which class
-    E.g labeldict = {0: 'Wake', 4:'REM', 1:'S1', 2:'S2', 3:'SWS'}
+    E.g labeldict = {0: 'Wake', 4:'REM', 1:'N1', 2:'N2', 3:'SWS'}
     or {0:'Wake', 1:'Sleep', 2:'Sleep', 3:'Sleep', 4:'Sleep', 5:'Artefact'}
 
     The order of the labels on the plot will be determined by the order of the dictionary.
@@ -236,23 +236,23 @@ def plot_hypnogram(stages, labeldict=None, title=None, epochlen=30, ax=None,
             labeldict = {0: 'W', 2: 'REM', 1: 'NREM'}
         elif np.max(stages) == 4 and np.min(stages) == 0:
             if 1 in stages:
-                labeldict = {0: 'W', 4: 'REM', 1: 'S1', 2: 'S2', 3: 'SWS', }
+                labeldict = {0: 'W', 4: 'REM', 1: 'N1', 2: 'N2', 3: 'SWS', }
             else:
-                labeldict = {0: 'W', 4: 'REM', 2: 'S2', 3: 'SWS'}
+                labeldict = {0: 'W', 4: 'REM', 2: 'N2', 3: 'SWS'}
         elif np.max(stages) == 9 and np.min(stages) == 0:
             if 1 in stages:
                 labeldict = {0: 'W', 4: 'REM',
-                             1: 'S1', 2: 'S2', 3: 'SWS', 9: 'A'}
+                             1: 'N1', 2: 'N2', 3: 'SWS', 9: 'A'}
             else:
-                labeldict = {0: 'W', 4: 'REM', 2: 'S2', 3: 'SWS'}
+                labeldict = {0: 'W', 4: 'REM', 2: 'N2', 3: 'SWS'}
         else:
             if verbose:
                 print('could not detect labels?')
             if 1 in stages:
                 labeldict = {0: 'W', 4: 'REM',
-                             1: 'S1', 2: 'S2', 3: 'SWS', 5: 'A'}
+                             1: 'N1', 2: 'N2', 3: 'SWS', 5: 'A'}
             else:
-                labeldict = {0: 'W', 4: 'REM', 2: 'S2', 3: 'SWS', 5: 'A'}
+                labeldict = {0: 'W', 4: 'REM', 2: 'N2', 3: 'SWS', 5: 'A'}
         if -1 in stages:
             labeldict['ARTEFACT'] = -1
         if verbose:

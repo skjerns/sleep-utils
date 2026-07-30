@@ -44,7 +44,7 @@ class TestHypnoSummary(unittest.TestCase):
         cls.hypno3 = read_hypno('./data/test_rest_hypno.txt')
         cls.hypno_waso = read_hypno('./data/14201_hypno.txt')
         cls.basic_hypno = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 0, 0, 1, 1, 1, 2, 3, 4, 4, 0, 0]  # Simple sleep pattern
-        cls.missing_stages_hypno = [0, 0, 1, 1, 2, 2, 0, 0]  # Missing S3 and REM
+        cls.missing_stages_hypno = [0, 0, 1, 1, 2, 2, 0, 0]  # Missing N3 and REM
 
 
     def test_missing_stages(self):
@@ -52,7 +52,7 @@ class TestHypnoSummary(unittest.TestCase):
         result = hypno_summary(self.missing_stages_hypno)
 
         # Check if latencies for missing stages are NaN
-        self.assertTrue(np.isnan(result['lat_S3']))
+        self.assertTrue(np.isnan(result['lat_SWS']))
         self.assertTrue(np.isnan(result['lat_REM']))
 
     def test_sleep_cycles(self):
@@ -93,7 +93,7 @@ class TestHypnoSummary(unittest.TestCase):
             # Test percentages sum to 100% (only for hypnograms with all stages)
             if 1 in hypno and 2 in hypno and 3 in hypno and 4 in hypno:
                 # Due to rounding, we allow a small tolerance
-                total_percentage = s.perc_S1 + s.perc_S2 + s.perc_S3 + s.perc_REM
+                total_percentage = s.perc_N1 + s.perc_N2 + s.perc_SWS + s.perc_REM
                 np.testing.assert_almost_equal(total_percentage, 100, decimal=1)
 
             # Test TST calculation
@@ -101,9 +101,9 @@ class TestHypnoSummary(unittest.TestCase):
             np.testing.assert_almost_equal(s.TST, expected_tst)
 
             # Test sleep stage minutes
-            np.testing.assert_almost_equal(s.min_S1, sum(x == 1 for x in hypno) * 30 / 60)
-            np.testing.assert_almost_equal(s.min_S2, sum(x == 2 for x in hypno) * 30 / 60)
-            np.testing.assert_almost_equal(s.min_S3, sum(x == 3 for x in hypno) * 30 / 60)
+            np.testing.assert_almost_equal(s.min_N1, sum(x == 1 for x in hypno) * 30 / 60)
+            np.testing.assert_almost_equal(s.min_N2, sum(x == 2 for x in hypno) * 30 / 60)
+            np.testing.assert_almost_equal(s.min_SWS, sum(x == 3 for x in hypno) * 30 / 60)
             np.testing.assert_almost_equal(s.min_REM, sum(x == 4 for x in hypno) * 30 / 60)
 
             # Test sleep efficiency calculation
@@ -114,7 +114,7 @@ class TestHypnoSummary(unittest.TestCase):
             if 1 in hypno:
                 first_s1 = list(hypno).index(1)
                 expected_lat_s1 = (first_s1 - 0) * 30 / 60  # Assuming lights_off_epoch=0
-                np.testing.assert_almost_equal(s.lat_S1, expected_lat_s1)
+                np.testing.assert_almost_equal(s.lat_N1, expected_lat_s1)
 
             # Test SQI calculation
             expected_sqi = round(s.SE * (1 - s.FI), 2)

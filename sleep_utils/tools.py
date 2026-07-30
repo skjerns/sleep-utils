@@ -164,6 +164,7 @@ def hypno_summary(hypno, epochlen=30, lights_off_epoch=0, lights_on_epoch=-1,
 
     if convert_to_aasm:
         hypno[hypno==4] = 3
+        hypno[hypno==5] = 4
 
     sleep_stages = {'W':0, 'N1':1, 'N2':2, 'SWS':3, 'REM':4}
     # do some sanity checks

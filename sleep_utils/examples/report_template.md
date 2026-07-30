@@ -17,9 +17,9 @@ Tortendiagramme (unten): Diese Diagramme stellen die prozentuale Verteilung der 
 
 - **W:** Wachzustand
 - **REM:** REM-Schlaf (Rapid Eye Movement)
-- **S1:** Schlafstadium 1 (Einschlafphase)
-- **S2:** Schlafstadium 2 (leichter Schlaf)
-- **SWS:** Tiefschlaf (Slow-Wave Sleep, auch S3 genannt)
+- **N1:** Schlafstadium 1 (Einschlafphase)
+- **N2:** Schlafstadium 2 (leichter Schlaf)
+- **SWS:** Tiefschlaf (Slow-Wave Sleep, auch N3 genannt)
 
 %%%%HYPNOGRAMS%%%% %%%%DISTRIBUTIONS%%%% <div style="page-break-after: always;"></div><br>
 
@@ -32,9 +32,9 @@ Tortendiagramme (unten): Diese Diagramme stellen die prozentuale Verteilung der 
 
 **Erklärungen zu den Schlafphasen**
 
-- **S1 (Einschlafphase):** Dies ist die leichteste Schlafphase, die als Übergang zwischen Wachsein und Schlafen dient. In dieser Phase können leichte Bewegungen und schnelle Wechsel zurück ins Wachsein vorkommen.
-- **S2 (Leichtschlaf):** Dies ist eine Phase des leichten Schlafs, die den Großteil des Schlafs ausmacht. In dieser Phase verlangsamt sich die Herzfrequenz und die Körpertemperatur sinkt. Es ist schwieriger, aus dieser Phase aufzuwachen als aus S1.
-- **S3 (Tiefschlaf):** Diese Phase ist auch als Tiefschlaf oder Slow-Wave Sleep (SWS) bekannt. Sie ist für die körperliche Erholung und das Immunsystem besonders wichtig. Aufwachen aus dieser Phase kann zu Desorientierung führen.
+- **N1 (Einschlafphase):** Dies ist die leichteste Schlafphase, die als Übergang zwischen Wachsein und Schlafen dient. In dieser Phase können leichte Bewegungen und schnelle Wechsel zurück ins Wachsein vorkommen.
+- **N2 (Leichtschlaf):** Dies ist eine Phase des leichten Schlafs, die den Großteil des Schlafs ausmacht. In dieser Phase verlangsamt sich die Herzfrequenz und die Körpertemperatur sinkt. Es ist schwieriger, aus dieser Phase aufzuwachen als aus N1.
+- **N3 (Tiefschlaf):** Diese Phase ist auch als Tiefschlaf oder Slow-Wave Sleep (SWS) bekannt. Sie ist für die körperliche Erholung und das Immunsystem besonders wichtig. Aufwachen aus dieser Phase kann zu Desorientierung führen.
 - **REM (Rapid Eye Movement) Schlaf:** Diese Phase ist durch schnelle Augenbewegungen gekennzeichnet und wird oft mit intensivem Träumen in Verbindung gebracht. 
 
 
