@@ -14,6 +14,12 @@ import numpy as np
 import warnings
 import pandas as pd
 
+#: Default U-Sleep server. Points at the public service at sleep.ai.ku.dk unless the
+#: USLEEP_API_URL environment variable names another one, which lets a site redirect all
+#: scripts to a local instance (e.g. http://sleepyland.zi.local:8887) without editing them.
+DEFAULT_USLEEP_URL = os.environ.get('USLEEP_API_URL', 'https://sleep.ai.ku.dk:443')
+
+
 def tempfile_wrapper(func):
     @wraps(func)
     def wrapped(*args, **kwargs):
@@ -46,7 +52,8 @@ def disable_ssl_verify():
 @tempfile_wrapper
 def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
                    ch_groups=None, model='U-Sleep v2.0', saveto=None,
-                   seconds_per_label=30, tmp_edf=None, return_proba=False):
+                   seconds_per_label=30, tmp_edf=None, return_proba=False,
+                   url=None):
     """
     Run U-Sleep prediction on an mne.io.Raw object.
 
@@ -76,6 +83,10 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
         Optional path to use for temporary EDF export.
     return_proba : bool
         If True, return class probabilities.
+    url : str, optional
+        Base URL of the U-Sleep server. Defaults to DEFAULT_USLEEP_URL, i.e. the public
+        service unless USLEEP_API_URL is set. Pass e.g.
+        'http://sleepyland.zi.local:8887' to use a local instance.
 
     Returns
     -------
@@ -103,17 +114,17 @@ def predict_usleep_raw(raw, api_token, eeg_chs=None, eog_chs=None,
     return predict_usleep(tmp_edf, api_token, eeg_chs=eeg_chs, eog_chs=eog_chs,
                           ch_groups=None, model=model, saveto=saveto,
                           seconds_per_label=seconds_per_label,
-                          return_proba=return_proba)
+                          return_proba=return_proba, url=url)
 
-def delete_all_sessions(api_token):
+def delete_all_sessions(api_token, url=None):
     """convenience function to delete all sessions and data"""
     from usleep_api import USleepAPI
-    api = USleepAPI(api_token=api_token)
+    api = USleepAPI(api_token=api_token, url=url or DEFAULT_USLEEP_URL)
     api.delete_all_sessions()
 
 def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
                    ch_groups=None, model='U-Sleep v2.0', saveto=None,
-                   seconds_per_label=30, return_proba=False):
+                   seconds_per_label=30, return_proba=False, url=None):
     """
     Run U-Sleep prediction on an EDF file via the U-Sleep API.
 
@@ -140,6 +151,11 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
         Seconds per hypnogram label (default: 30).
     return_proba : bool
         If True, also return class probability array.
+    url : str, optional
+        Base URL of the U-Sleep server. Defaults to DEFAULT_USLEEP_URL, i.e. the public
+        service unless USLEEP_API_URL is set. Pass e.g.
+        'http://sleepyland.zi.local:8887' to use a local instance, which needs no token
+        registration - any non-empty string works as api_token there.
 
     Returns
     -------
@@ -162,11 +178,14 @@ def predict_usleep(edf_file, api_token, eeg_chs=None, eog_chs=None,
         'must either supply eeg_chs and eog_chs OR ch_groups'
 
     # Create an API object and a new session.
+    url = url or DEFAULT_USLEEP_URL
     try:
-        api = USleepAPI(api_token=api_token)
+        api = USleepAPI(api_token=api_token, url=url)
         assert api,  f'could init API: {api}, {api.content}'
     except ConnectionRefusedError as e:
-        raise ConnectionRefusedError(f'{e.args}. Maybe your API token expired? Go to https://sleep.ai.ku.dk to get a new one')
+        raise ConnectionRefusedError(f'{e.args}. Could not authenticate against {url}. '
+                                     'If using https://sleep.ai.ku.dk, maybe your API token '
+                                     'expired? Go there to get a new one.')
     assert os.path.isfile(edf_file), f'{edf_file} not found'
 
     with api.new_session_context(session_name=os.path.basename(edf_file)) as session:
