@@ -79,3 +79,15 @@ This module provides a convenient wrapper around the [U-Sleep API](https://sleep
 - Predict sleep stages from EEG/EOG data using the U-Sleep model
 - Manage prediction sessions with the API
 - It supports both `mne.io.Raw` objects and EDF files as input.
+
+By default requests go to the public service at https://sleep.ai.ku.dk. If you run your
+own U-Sleep server, point the functions at it with `url=`:
+
+```python
+hypno = predict_usleep(edf_file, api_token, eeg_chs=..., eog_chs=...,
+                       url="http://my-usleep-server:8887")
+```
+
+Alternatively set the `USLEEP_API_URL` environment variable to redirect every call without
+touching any code. `predict_usleep`, `predict_usleep_raw` and `delete_all_sessions` all
+accept `url=`; omitting it keeps the previous behaviour.

@@ -1,5 +1,5 @@
-# This workflows will upload a Python Package using Twine when a release is created
-# For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#publishing-to-package-registries
+# Uploads a Python package to PyPI with Twine when a GitHub release is created.
+# See https://docs.github.com/en/actions/use-cases-and-examples/publishing-packages/publishing-python-packages
 
 name: Upload Python Package
 
@@ -14,22 +14,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v7
       with:
-        python-version: '3.9'
+        python-version: '3.12'
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install setuptools wheel twine
-    - name: Run tests once
-      run: |
-        pip install -e .
-    - name: Build and publish
+        pip install build twine
+    - name: Check the package installs
+      run: pip install -e .
+    - name: Build
+      # `python -m build` rather than `setup.py sdist bdist_wheel`: invoking setup.py
+      # directly is deprecated and warns on current setuptools.
+      run: python -m build
+    - name: Check metadata before uploading
+      # Catches a malformed long_description, which PyPI otherwise rejects only after the
+      # upload has started -- and a version number can never be reused.
+      run: twine check dist/*
+    - name: Publish
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-      run: |
-        python setup.py sdist bdist_wheel
-        twine upload dist/*
+      run: twine upload --non-interactive dist/*
